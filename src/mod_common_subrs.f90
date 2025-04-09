@@ -249,18 +249,19 @@ contains
 
     select case (acc)
     case (1)
+      ! WGB Updated code to support non-periodic BCs.
        do k=1,nlev
           do j=1,nlat
-             do i=1,nlon
-                i1=max(i-1,1)
-                i2=min(i+1,nlon)
-                if(i1.eq.i)i1=nlon
-                if(i2.eq.i)i2=1
-                dfdx(i,j,k)=(f(i2,j,k)-f(i1,j,k))*inv_dx
+             do i=2,nlon-1
+                dfdx(i,j,k)=(f(i+1,j,k)-f(i-1,j,k))*inv_dx
              enddo
           enddo
        enddo
+       ! Do one-sided esimates at the boundaries
+       dfdx(1,:,:)=(f(2,:,:)-f(1,:,:))*inv_dx
+       dfdx(nlon,:,:)=(f(nlon,:,:)-f(nlon-1,:,:))*inv_dx
     case (2)
+       ! Case 2 still supports periodic BCs.
        do k=1,nlev
           do j=1,nlat
              do i=1,nlon
@@ -445,8 +446,8 @@ contains
   !***************************************************************************
   !> @brief Computes the Laplace operator in Cartesian coordinates.
   !!
-  !! This function calculates the Laplacian of a field assuming periodic
-  !! boundary conditions in the x-direction.
+  !! This function calculates the 2D Laplacian of a 3D field using finite
+  !! differences. It supports two methods of calculation.
   !!
   !! @param[in]  f       Input field (3D array)
   !! @param[in]  dx      Grid spacing in the x-direction
@@ -455,8 +456,7 @@ contains
   !***************************************************************************
   function laplace_cart(f,dx,dy) result(lapl)
     !     Laplace operator in cartesian coordinates.
-    !     The domain is assumed to be periodic in east-west-direction
-    !     ** At the northern and southern boundaries, second y derivative
+    !     ** At the northern, southern, eastern, and western boundaries, second y derivative
     !     is assumed to be zero
     implicit none
 
@@ -475,14 +475,16 @@ contains
 
     select case(acc)
     case(1)
-       ! x-direction
-       lapl ( 2 : nlon - 1, :, : ) = f( 1: nlon - 2, :, : ) + f ( 3: nlon, :, : ) &
-            - 2 * f( 2 : nlon - 1, :, : )
-       lapl ( 1, :, : )    = f( nlon, :, : ) + f ( 2, :, : ) &
-            - 2 * f( 1, :, : )
-       lapl ( nlon, :, : ) = f( nlon - 1, :, : ) + f ( 1, :, : ) &
-            - 2 * f( nlon, :, : )
-       lapl = lapl * inv_dx
+       ! x-direction (old periodic BC code)
+       !lapl ( 2 : nlon - 1, :, : ) = f( 1: nlon - 2, :, : ) + f ( 3: nlon, :, : ) &
+       !     - 2 * f( 2 : nlon - 1, :, : )
+       !lapl ( 1, :, : )    = f( nlon, :, : ) + f ( 2, :, : ) &
+       !     - 2 * f( 1, :, : )
+       !lapl ( nlon, :, : ) = f( nlon - 1, :, : ) + f ( 1, :, : ) &
+       !     - 2 * f( nlon, :, : )
+       !lapl = lapl * inv_dx
+       lapl ( 2 : nlon - 1, :, : ) = ( f ( 1 : nlon - 2, :, : ) + f ( 3 : nlon, :, : ) &
+                                       - 2 * f( 2 : nlon - 1, :, : ) ) * inv_dx
 
        ! y-directon
        lapl ( :, 2 : nlat -1, : ) = lapl ( :, 2 : nlat -1, : ) &

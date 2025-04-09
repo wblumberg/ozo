@@ -1,3 +1,13 @@
+!> @file mod_omega.f90
+!! @brief This module contains routines for solving the omega equation.
+!!
+!! This module provides subroutines and functions for calculating omega fields,
+!! solving the generalized and quasi-geostrophic omega equations, and related
+!! operations such as calculating forcing terms and applying boundary conditions.
+!!
+!! @note Ensure that this module is properly included in the relevant parts
+!! of the project to access its functionality.
+
 module mod_omega
   use mod_const
   use mod_wrf_file
@@ -6,7 +16,40 @@ module mod_omega
 
 contains
 
-  subroutine calculate_omegas( file, t, u, v, omegaan, z, q, xfrict, yfrict, &
+  !***************************************************************************
+  !> @brief Calculates omega fields using the generalized or QG omega equation.
+  !!
+  !! This subroutine calculates omega fields by solving the generalized or
+  !! quasi-geostrophic (QG) omega equation. It computes forcing terms, applies
+  !! boundary conditions, and solves the equation iteratively.
+  !!
+  !! @param[in]  file         Input WRF file structure.
+  !! @param[in]  t            Temperature field (3D array).
+  !! @param[in]  u            Zonal wind field (3D array).
+  !! @param[in]  v            Meridional wind field (3D array).
+  !! @param[in]  omegaan      Initial omega field (3D array).
+  !! @param[in]  z            Geopotential height field (3D array).
+  !! @param[in]  q            Diabatic heating field (3D array).
+  !! @param[in]  xfrict       Zonal friction term (3D array).
+  !! @param[in]  yfrict       Meridional friction term (3D array).
+  !! @param[in]  ttend        Temperature tendency (3D array).
+  !! @param[in]  zetaraw      Raw vorticity field (3D array).
+  !! @param[in]  zetatend     Vorticity tendency (3D array).
+  !! @param[in]  uKhi         Irrotational zonal wind component (3D array).
+  !! @param[in]  vKhi         Irrotational meridional wind component (3D array).
+  !! @param[in]  sigmaraw     Raw static stability field (3D array).
+  !! @param[in]  mulfact      Multiplication factors (3D array).
+  !! @param[in]  param        Simulation parameters.
+  !! @param[in]  debug        Logical flag to enable debug output.
+  !! @param[in]  calc_b       Logical flag to include boundary conditions.
+  !! @param[out] omegas       Generalized omega fields (4D array).
+  !! @param[out] omegas_QG    QG omega fields (4D array).
+  !! @param[out] sigma_elcorr Ellipticity correction for static stability (3D array).
+  !! @param[out] zeta_elcorr  Ellipticity correction for vorticity (3D array).
+  !! @param[in]  dudp1        Pressure derivative of zonal wind (3D array).
+  !! @param[in]  dvdp1        Pressure derivative of meridional wind (3D array).
+  !***************************************************************************
+  subroutine calculate_omegas(file, t, u, v, omegaan, z, q, xfrict, yfrict, &
        ttend, zetaraw, zetatend, uKhi, vKhi, sigmaraw, mulfact, param, debug, calc_b, &
        omegas, omegas_QG, sigma_elcorr, zeta_elcorr, dudp1, dvdp1)
 
@@ -292,6 +335,20 @@ contains
 
 end subroutine calculate_omegas
 
+  !***************************************************************************
+  !> @brief Solves the QG omega equation for a test case.
+  !!
+  !! This subroutine calculates the left-hand side (LHS) of the QG omega equation
+  !! using a test case and substitutes it into the right-hand side (RHS).
+  !!
+  !! @param[in]  omegaan  Initial omega field (3D array).
+  !! @param[in]  sigma    Static stability field (4D array).
+  !! @param[in]  feta     Coriolis parameter times vorticity (4D array).
+  !! @param[in]  dx       Grid spacing in the x-direction.
+  !! @param[in]  dy       Grid spacing in the y-direction.
+  !! @param[in]  dlev     Pressure level spacing.
+  !! @param[out] ftest    Forcing term for the test case (4D array).
+  !***************************************************************************
 subroutine QG_test(omegaan,sigma,feta,dx,dy,dlev,ftest)
   !   Forcing for quasigeostrophic test case ('t')
   !   In essence: calculating the LHS from the WRF omega (omegaan)
@@ -310,6 +367,23 @@ subroutine QG_test(omegaan,sigma,feta,dx,dy,dlev,ftest)
 
 end subroutine QG_test
 
+  !***************************************************************************
+  !> @brief Solves the generalized omega equation for a test case.
+  !!
+  !! This subroutine calculates the left-hand side (LHS) of the generalized omega
+  !! equation using a test case and substitutes it into the right-hand side (RHS).
+  !!
+  !! @param[in]  sigmaraw  Raw static stability field (3D array).
+  !! @param[in]  omegaan   Initial omega field (3D array).
+  !! @param[in]  zetaraw   Raw vorticity field (3D array).
+  !! @param[in]  dudp      Pressure derivative of zonal wind (3D array).
+  !! @param[in]  dvdp      Pressure derivative of meridional wind (3D array).
+  !! @param[in]  corpar    Coriolis parameter (3D array).
+  !! @param[in]  dx        Grid spacing in the x-direction.
+  !! @param[in]  dy        Grid spacing in the y-direction.
+  !! @param[in]  dlev      Pressure level spacing.
+  !! @param[out] ftest     Forcing term for the test case (4D array).
+  !***************************************************************************
 subroutine gen_test(sigmaraw,omegaan,zetaraw,dudp,dvdp,corpar,dx,dy,dlev,&
      ftest)
   !   Forcing for the general test case
@@ -341,6 +415,21 @@ subroutine gen_test(sigmaraw,omegaan,zetaraw,dudp,dvdp,corpar,dx,dy,dlev,&
 
 end subroutine gen_test
 
+  !***************************************************************************
+  !> @brief Coarsens a 3D field to a lower resolution.
+  !!
+  !! This subroutine averages the values of a 3D field over larger grid boxes
+  !! to produce a coarser resolution field.
+  !!
+  !! @param[in]  f       Input field (3D array).
+  !! @param[out] g       Coarsened field (3D array).
+  !! @param[in]  nlon1   Number of longitudes in the input field.
+  !! @param[in]  nlat1   Number of latitudes in the input field.
+  !! @param[in]  nlev1   Number of levels in the input field.
+  !! @param[in]  nlon2   Number of longitudes in the coarsened field.
+  !! @param[in]  nlat2   Number of latitudes in the coarsened field.
+  !! @param[in]  nlev2   Number of levels in the coarsened field.
+  !***************************************************************************
 subroutine coarsen3D(f,g,nlon1,nlat1,nlev1,nlon2,nlat2,nlev2)
   !   Averages the values of field f (grid size nlon1 x nlat1 x nlev1) over larger
   !   grid boxes (grid size nlon2 x nlat2 x nlev2), to field g
@@ -379,14 +468,22 @@ subroutine coarsen3D(f,g,nlon1,nlat1,nlev1,nlon2,nlat2,nlev2)
 
 end subroutine coarsen3D
 
-subroutine finen3D(f,g,nlon1,nlat1,nlev1,nlon2,nlat2,nlev2)
-  !   Distributes the values of field f (grid size nlon2 x nlat2 x nlev2) to a
-  !   finer grid g (grid size nlon1 x nlat1 x nlev1), assuming that f is
-  !   constant in each grid box of the original grid
-  !
-  !   ** PERHAPS THIS SHOULD BE REPLACED BY BILINEAR INTERPOLATION
-  !   ** TO AVOID ARTIFICIAL JUMPS
-
+!***************************************************************************
+!> @brief Refines a 3D field to a higher resolution.
+!!
+!! This subroutine distributes the values of a coarse 3D field to a finer grid,
+!! assuming that the coarse field is constant within each grid box.
+!!
+!! @param[in]  f       Coarse input field (3D array).
+!! @param[out] g       Refined field (3D array).
+!! @param[in]  nlon1   Number of longitudes in the refined field.
+!! @param[in]  nlat1   Number of latitudes in the refined field.
+!! @param[in]  nlev1   Number of levels in the refined field.
+!! @param[in]  nlon2   Number of longitudes in the coarse field.
+!! @param[in]  nlat2   Number of latitudes in the coarse field.
+!! @param[in]  nlev2   Number of levels in the coarse field.
+!***************************************************************************
+subroutine finen3D(f, g, nlon1, nlat1, nlev1, nlon2, nlat2, nlev2)
   integer,intent(in) :: nlon1,nlat1,nlev1,nlon2,nlat2,nlev2
   real,dimension(nlon2,nlat2,nlev2),intent(in) :: f
   real,dimension(nlon1,nlat1,nlev1),intent(out) :: g
@@ -414,6 +511,19 @@ subroutine finen3D(f,g,nlon1,nlat1,nlev1,nlon2,nlat2,nlev2)
 
 end subroutine finen3D
 
+  !***************************************************************************
+  !> @brief Calculates geostrophic winds from geopotential height.
+  !!
+  !! This subroutine calculates the geostrophic wind components (u, v) from
+  !! the geopotential height field.
+  !!
+  !! @param[in]  z       Geopotential height field (3D array).
+  !! @param[in]  dx      Grid spacing in the x-direction.
+  !! @param[in]  dy      Grid spacing in the y-direction.
+  !! @param[in]  corpar  Coriolis parameter (3D array).
+  !! @param[out] u       Geostrophic zonal wind component (3D array).
+  !! @param[out] v       Geostrophic meridional wind component (3D array).
+  !***************************************************************************
 subroutine gwinds(z,dx,dy,corpar,u,v)
   !   Calculation of geostrophic winds (u,v) from z. At the equator, mean of
   !   the two neighbouring latitudes is used (should not be a relevant case).
@@ -455,6 +565,22 @@ subroutine gwinds(z,dx,dy,corpar,u,v)
 
 end subroutine gwinds
 
+  !***************************************************************************
+  !> @brief Calculates ellipticity corrections for stability and vorticity.
+  !!
+  !! This subroutine calculates corrections to the static stability and
+  !! vorticity fields to ensure ellipticity of the omega equation.
+  !!
+  !! @param[in]  sigmaraw     Raw static stability field (3D array).
+  !! @param[in]  sigmamin     Minimum allowed static stability.
+  !! @param[in]  etamin       Minimum allowed vorticity.
+  !! @param[in]  zetaraw      Raw vorticity field (3D array).
+  !! @param[in]  corpar       Coriolis parameter (1D array).
+  !! @param[in]  dudp         Pressure derivative of zonal wind (3D array).
+  !! @param[in]  dvdp         Pressure derivative of meridional wind (3D array).
+  !! @param[out] sigma_elcorr Ellipticity correction for static stability (3D array).
+  !! @param[out] zeta_elcorr  Ellipticity correction for vorticity (3D array).
+  !***************************************************************************
 subroutine calculate_ellipticity_correction ( sigmaraw,sigmamin,etamin,zetaraw,&
      corpar,dudp,dvdp,sigma_elcorr,zeta_elcorr)
 
@@ -492,6 +618,14 @@ subroutine calculate_ellipticity_correction ( sigmaraw,sigmamin,etamin,zetaraw,&
 
 end subroutine calculate_ellipticity_correction
 
+!***************************************************************************
+!> @brief Calculates the area mean of a 2D field.
+!!
+!! This function computes the area mean of a 2D field in Cartesian coordinates.
+!!
+!! @param[in]  f       Input field (2D array).
+!! @return     res     Area mean of the field.
+!***************************************************************************
 function aave(f) result(res)
   !   Calculation of area mean (res) of field f in cartesian coordinates.
   !   Simplest possible way.
@@ -514,6 +648,21 @@ function aave(f) result(res)
 
 end function aave
 
+!***************************************************************************
+!> @brief Calculates vorticity advection forcing.
+!!
+!! This function computes the vorticity advection forcing term for the omega equation.
+!!
+!! @param[in]  u       Zonal wind component (3D array).
+!! @param[in]  v       Meridional wind component (3D array).
+!! @param[in]  zeta    Relative vorticity field (3D array).
+!! @param[in]  corpar  Coriolis parameter (3D array).
+!! @param[in]  dx      Grid spacing in the x-direction.
+!! @param[in]  dy      Grid spacing in the y-direction.
+!! @param[in]  dp      Pressure interval.
+!! @param[in]  mulfact Multiplication factors (3D array).
+!! @return     fv      Vorticity advection forcing (3D array).
+!***************************************************************************
 function fvort(u, v, zeta, corpar, dx, dy, dp, mulfact) result(fv)
   !   Calculation of vorticity advection forcing
   !   Input: u, v, zeta
@@ -564,6 +713,20 @@ function fvort(u, v, zeta, corpar, dx, dy, dp, mulfact) result(fv)
 
 end function fvort
 
+!***************************************************************************
+!> @brief Calculates temperature advection forcing.
+!!
+!! This function computes the temperature advection forcing term for the omega equation.
+!!
+!! @param[in]  u       Zonal wind component (3D array).
+!! @param[in]  v       Meridional wind component (3D array).
+!! @param[in]  t       Temperature field (3D array).
+!! @param[in]  lev     Pressure levels (1D array).
+!! @param[in]  dx      Grid spacing in the x-direction.
+!! @param[in]  dy      Grid spacing in the y-direction.
+!! @param[in]  mulfact Multiplication factors (3D array).
+!! @return     ft      Temperature advection forcing (3D array).
+!***************************************************************************
 function ftemp(u,v,t,lev,dx,dy,mulfact) result(ft)
    !   Calculation of temperature advection forcing
    !   Input: u,v,t
@@ -603,6 +766,20 @@ function ftemp(u,v,t,lev,dx,dy,mulfact) result(ft)
 
 end function ftemp
 
+!***************************************************************************
+!> @brief Calculates friction forcing.
+!!
+!! This function computes the friction forcing term for the omega equation.
+!!
+!! @param[in]  fx      Zonal friction term (3D array).
+!! @param[in]  fy      Meridional friction term (3D array).
+!! @param[in]  corpar  Coriolis parameter (3D array).
+!! @param[in]  dx      Grid spacing in the x-direction.
+!! @param[in]  dy      Grid spacing in the y-direction.
+!! @param[in]  dp      Pressure interval.
+!! @param[in]  mulfact Multiplication factors (3D array).
+!! @return     ff      Friction forcing (3D array).
+!***************************************************************************
 function ffrict(fx,fy,corpar,dx,dy,dp,mulfact) result(ff)
    !   Calculation of friction forcing
    !   Input: fx,fy = x and y components of "friction force"
@@ -639,6 +816,18 @@ function ffrict(fx,fy,corpar,dx,dy,dp,mulfact) result(ff)
 
 end function ffrict
 
+!***************************************************************************
+!> @brief Calculates diabatic heating forcing.
+!!
+!! This function computes the diabatic heating forcing term for the omega equation.
+!!
+!! @param[in]  q       Diabatic heating field (3D array).
+!! @param[in]  lev     Pressure levels (1D array).
+!! @param[in]  dx      Grid spacing in the x-direction.
+!! @param[in]  dy      Grid spacing in the y-direction.
+!! @param[in]  mulfact Multiplication factors (3D array).
+!! @return     fq      Diabatic heating forcing (3D array).
+!***************************************************************************
 function fdiab(q,lev,dx,dy,mulfact) result(fq)
    !   Calculation of diabatic heating forcing
    !   Input: q = diabatic temperature tendency (already normalized by cp)
@@ -674,6 +863,21 @@ function fdiab(q,lev,dx,dy,mulfact) result(fq)
 
 end function fdiab
 
+!***************************************************************************
+!> @brief Calculates imbalance forcing.
+!!
+!! This function computes the imbalance forcing term for the omega equation.
+!!
+!! @param[in]  dzetadt Vorticity tendency (3D array).
+!! @param[in]  dtdt    Temperature tendency (3D array).
+!! @param[in]  corpar  Coriolis parameter (3D array).
+!! @param[in]  lev     Pressure levels (1D array).
+!! @param[in]  dx      Grid spacing in the x-direction.
+!! @param[in]  dy      Grid spacing in the y-direction.
+!! @param[in]  dp      Pressure interval.
+!! @param[in]  mulfact Multiplication factors (3D array).
+!! @return     fa      Imbalance forcing (3D array).
+!***************************************************************************
 function fimbal(dzetadt,dtdt,corpar,lev,dx,dy,dp,mulfact) result(fa)
    !   Calculation of the FA ("imbalance") forcing term
    !   Input: dzetadt, dtdt = vorticity & temperature tendencies
@@ -717,6 +921,27 @@ function fimbal(dzetadt,dtdt,corpar,lev,dx,dy,dp,mulfact) result(fa)
 
 end function fimbal
 
+!***************************************************************************
+!> @brief Calls the solver for the QG omega equation.
+!!
+!! This subroutine solves the QG omega equation using a multigrid algorithm.
+!!
+!! @param[in]  rhs         Right-hand-side forcing (4D array).
+!! @param[in]  boundaries  Boundary conditions (4D array).
+!! @param[out] omega        Omega solution (4D array).
+!! @param[in]  nlonx       Number of longitudes at each resolution.
+!! @param[in]  nlatx       Number of latitudes at each resolution.
+!! @param[in]  nlevx       Number of levels at each resolution.
+!! @param[in]  dx          Grid spacing in the x-direction.
+!! @param[in]  dy          Grid spacing in the y-direction.
+!! @param[in]  dlev        Pressure level spacing.
+!! @param[in]  sigma0      Area mean of static stability (2D array).
+!! @param[in]  feta        Coriolis parameter times vorticity (4D array).
+!! @param[in]  nres        Number of resolutions.
+!! @param[in]  alfa        Relaxation coefficient.
+!! @param[in]  toler       Convergence tolerance.
+!! @param[in]  debug       Logical flag to enable debug output.
+!***************************************************************************
 subroutine callsolveQG(rhs,boundaries,omega,nlonx,nlatx,nlevx,&
      dx,dy,dlev,sigma0,feta,nres,alfa,toler,debug)
   !
@@ -820,6 +1045,28 @@ subroutine callsolveQG(rhs,boundaries,omega,nlonx,nlatx,nlevx,&
 
 end subroutine callsolveQG
 
+!***************************************************************************
+!> @brief Solves the QG omega equation iteratively.
+!!
+!! This subroutine solves the QG omega equation for a given number of iterations.
+!!
+!! @param[in]  rhs         Right-hand-side forcing (3D array).
+!! @param[in]  boundaries  Boundary conditions (3D array).
+!! @param[out] omega        Omega solution (3D array).
+!! @param[in]  omegaold    Previous omega solution (3D array).
+!! @param[in]  nlon        Number of longitudes.
+!! @param[in]  nlat        Number of latitudes.
+!! @param[in]  nlev        Number of levels.
+!! @param[in]  dx          Grid spacing in the x-direction.
+!! @param[in]  dy          Grid spacing in the y-direction.
+!! @param[in]  dlev        Pressure level spacing.
+!! @param[in]  sigma0      Area mean of static stability (1D array).
+!! @param[in]  feta        Coriolis parameter times vorticity (3D array).
+!! @param[in]  niter       Number of iterations.
+!! @param[in]  alfa        Relaxation coefficient.
+!! @param[in]  lres        Logical flag to calculate residuals.
+!! @param[out] resid       Residuals (3D array).
+!***************************************************************************
 subroutine solveQG(rhs,boundaries,omega,omegaold,nlon,nlat,nlev,&
      dx,dy,dlev,sigma0,feta,niter,alfa,lres,resid)
   !   Solving the QG omega equation using 'niter' iterations.
@@ -869,6 +1116,22 @@ subroutine solveQG(rhs,boundaries,omega,omegaold,nlon,nlat,nlev,&
 
 end subroutine solveQG
 
+!***************************************************************************
+!> @brief Updates the QG omega solution.
+!!
+!! This subroutine calculates a new estimate for the QG omega solution based
+!! on the surrounding points and the right-hand-side forcing.
+!!
+!! @param[in]  omegaold    Previous omega solution (3D array).
+!! @param[out] omega        Updated omega solution (3D array).
+!! @param[in]  sigma       Static stability (1D array).
+!! @param[in]  etasq       Coriolis parameter squared (3D array).
+!! @param[in]  rhs         Right-hand-side forcing (3D array).
+!! @param[in]  dx          Grid spacing in the x-direction.
+!! @param[in]  dy          Grid spacing in the y-direction.
+!! @param[in]  dlev        Pressure level spacing.
+!! @param[in]  alfa        Relaxation coefficient.
+!***************************************************************************
 subroutine updateQG(omegaold,omega,sigma,etasq,rhs,dx,dy,dlev,alfa)
   !   New estimate for the local value of omega, using omega in the
   !   surrounding points and the right-hand-side forcing (rhs)
@@ -883,13 +1146,13 @@ subroutine updateQG(omegaold,omega,sigma,etasq,rhs,dx,dy,dlev,alfa)
 
   real :: maxdiff
   integer :: i,j,k,nlon,nlat,nlev
-  real,dimension(:,:,:),allocatable :: lapl2,coeff1,coeff2,coeff,domedp2
+  real,dimension(:,:,:),allocatable :: lapl2,coeff1,coeff2,domedp2
 
   nlon=size(rhs,1)
   nlat=size(rhs,2)
   nlev=size(rhs,3)
   allocate(lapl2(nlon,nlat,nlev),coeff1(nlon,nlat,nlev))
-  allocate(coeff2(nlon,nlat,nlev),coeff(nlon,nlat,nlev))
+  allocate(coeff2(nlon,nlat,nlev))
   allocate(domedp2(nlon,nlat,nlev))
 
   !   Top and bottom levels: omega directly from the boundary conditions,
@@ -902,9 +1165,8 @@ subroutine updateQG(omegaold,omega,sigma,etasq,rhs,dx,dy,dlev,alfa)
   do k=2,nlev-1
      do j=2,nlat-1
         do i=1,nlon
-           coeff(i,j,k)=sigma(k)*coeff1(i,j,k)+etasq(i,j,k)*coeff2(i,j,k)
            omega(i,j,k)=(rhs(i,j,k)-sigma(k)*lapl2(i,j,k)- &
-                etasq(i,j,k)*domedp2(i,j,k)) / coeff(i,j,k)
+                etasq(i,j,k)*domedp2(i,j,k)) / (sigma(k)*coeff1(i,j,k)+etasq(i,j,k)*coeff2(i,j,k))
         enddo
      enddo
   enddo
@@ -922,7 +1184,21 @@ subroutine updateQG(omegaold,omega,sigma,etasq,rhs,dx,dy,dlev,alfa)
 
 end subroutine updateQG
 
-
+!***************************************************************************
+!> @brief Calculates the residual for the QG omega equation.
+!!
+!! This subroutine computes the residual for the QG omega equation as the
+!! difference between the right-hand-side forcing and the left-hand-side operator.
+!!
+!! @param[in]  rhs         Right-hand-side forcing (3D array).
+!! @param[in]  omega       Omega solution (3D array).
+!! @param[in]  sigma       Static stability (1D array).
+!! @param[in]  etasq       Coriolis parameter squared (3D array).
+!! @param[in]  dx          Grid spacing in the x-direction.
+!! @param[in]  dy          Grid spacing in the y-direction.
+!! @param[in]  dlev        Pressure level spacing.
+!! @param[out] resid       Residual (3D array).
+!***************************************************************************
 subroutine residQG(rhs,omega,sigma,etasq,dx,dy,dlev,resid)
   !   Calculating the residual RHS - LQG(omega)
   !
@@ -961,6 +1237,34 @@ subroutine residQG(rhs,omega,sigma,etasq,dx,dy,dlev,resid)
 
 end subroutine residQG
 
+!***************************************************************************
+!> @brief Calls the solver for the generalized omega equation.
+!!
+!! This subroutine solves the generalized omega equation using a multigrid algorithm.
+!!
+!! @param[in]  rhs         Right-hand-side forcing (4D array).
+!! @param[in]  boundaries  Boundary conditions (4D array).
+!! @param[out] omega        Omega solution (4D array).
+!! @param[in]  nlon        Number of longitudes at each resolution.
+!! @param[in]  nlat        Number of latitudes at each resolution.
+!! @param[in]  nlev        Number of levels at each resolution.
+!! @param[in]  dx          Grid spacing in the x-direction.
+!! @param[in]  dy          Grid spacing in the y-direction.
+!! @param[in]  dlev        Pressure level spacing.
+!! @param[in]  sigma0      Area mean of static stability (2D array).
+!! @param[in]  sigma       Static stability (4D array).
+!! @param[in]  feta        Coriolis parameter times vorticity (4D array).
+!! @param[in]  corfield    Coriolis parameter field (4D array).
+!! @param[in]  d2zetadp    Second pressure derivative of vorticity (4D array).
+!! @param[in]  dudp        Pressure derivative of zonal wind (4D array).
+!! @param[in]  dvdp        Pressure derivative of meridional wind (4D array).
+!! @param[in]  nres        Number of resolutions.
+!! @param[in]  alfa        Relaxation coefficient.
+!! @param[in]  toler       Convergence tolerance.
+!! @param[in]  ny1         Number of iterations at coarser grids.
+!! @param[in]  ny2         Number of iterations at finer grids.
+!! @param[in]  debug       Logical flag to enable debug output.
+!***************************************************************************
 subroutine callsolvegen(rhs,boundaries,omega,nlon,nlat,nlev,&
      dx,dy,dlev,sigma0,sigma,feta,corfield,d2zetadp,dudp,dvdp,&
      nres,alfa,toler,ny1,ny2,debug)
@@ -1098,6 +1402,33 @@ subroutine callsolvegen(rhs,boundaries,omega,nlon,nlat,nlev,&
 
 end subroutine callsolvegen
 
+!***************************************************************************
+!> @brief Solves the generalized omega equation iteratively.
+!!
+!! This subroutine solves the generalized omega equation for a given number of iterations.
+!!
+!! @param[in]  rhs         Right-hand-side forcing (3D array).
+!! @param[in]  boundaries  Boundary conditions (3D array).
+!! @param[out] omega        Omega solution (3D array).
+!! @param[in]  omegaold    Previous omega solution (3D array).
+!! @param[in]  nlon        Number of longitudes.
+!! @param[in]  nlat        Number of latitudes.
+!! @param[in]  nlev        Number of levels.
+!! @param[in]  dx          Grid spacing in the x-direction.
+!! @param[in]  dy          Grid spacing in the y-direction.
+!! @param[in]  dlev        Pressure level spacing.
+!! @param[in]  sigma0      Area mean of static stability (1D array).
+!! @param[in]  sigma       Static stability (3D array).
+!! @param[in]  feta        Coriolis parameter times vorticity (3D array).
+!! @param[in]  corpar      Coriolis parameter (3D array).
+!! @param[in]  d2zetadp    Second pressure derivative of vorticity (3D array).
+!! @param[in]  dudp        Pressure derivative of zonal wind (3D array).
+!! @param[in]  dvdp        Pressure derivative of meridional wind (3D array).
+!! @param[in]  niter       Number of iterations.
+!! @param[in]  alfa        Relaxation coefficient.
+!! @param[in]  lres        Logical flag to calculate residuals.
+!! @param[out] resid       Residuals (3D array).
+!***************************************************************************
 subroutine solvegen(rhs,boundaries,omega,omegaold,nlon,nlat,nlev,&
      dx,dy,dlev,sigma0,sigma,feta,corpar,d2zetadp,dudp,dvdp,&
      niter,alfa,lres,resid)
@@ -1170,6 +1501,27 @@ subroutine solvegen(rhs,boundaries,omega,omegaold,nlon,nlat,nlev,&
 
 end subroutine solvegen
 
+!***************************************************************************
+!> @brief Updates the generalized omega solution.
+!!
+!! This subroutine calculates a new estimate for the generalized omega solution
+!! based on the surrounding points and the right-hand-side forcing.
+!!
+!! @param[in]  omegaold    Previous omega solution (3D array).
+!! @param[out] omega        Updated omega solution (3D array).
+!! @param[in]  sigma0      Area mean of static stability (1D array).
+!! @param[in]  sigma       Static stability (3D array).
+!! @param[in]  feta        Coriolis parameter times vorticity (3D array).
+!! @param[in]  f           Coriolis parameter (3D array).
+!! @param[in]  d2zetadp    Second pressure derivative of vorticity (3D array).
+!! @param[in]  dudp        Pressure derivative of zonal wind (3D array).
+!! @param[in]  dvdp        Pressure derivative of meridional wind (3D array).
+!! @param[in]  rhs         Right-hand-side forcing (3D array).
+!! @param[in]  dx          Grid spacing in the x-direction.
+!! @param[in]  dy          Grid spacing in the y-direction.
+!! @param[in]  dlev        Pressure level spacing.
+!! @param[in]  alfa        Relaxation coefficient.
+!***************************************************************************
 subroutine updategen(omegaold,omega,sigma0,sigma,feta,f,d2zetadp,dudp,dvdp,&
      rhs,dx,dy,dlev,alfa)
   !
@@ -1258,6 +1610,25 @@ subroutine updategen(omegaold,omega,sigma0,sigma,feta,f,d2zetadp,dudp,dvdp,&
 
 end subroutine updategen
 
+!***************************************************************************
+!> @brief Calculates the residual for the generalized omega equation.
+!!
+!! This subroutine computes the residual for the generalized omega equation as
+!! the difference between the right-hand-side forcing and the left-hand-side operator.
+!!
+!! @param[in]  rhs         Right-hand-side forcing (3D array).
+!! @param[in]  omega       Omega solution (3D array).
+!! @param[in]  sigma       Static stability (3D array).
+!! @param[in]  feta        Coriolis parameter times vorticity (3D array).
+!! @param[in]  f           Coriolis parameter (3D array).
+!! @param[in]  d2zetadp    Second pressure derivative of vorticity (3D array).
+!! @param[in]  dudp        Pressure derivative of zonal wind (3D array).
+!! @param[in]  dvdp        Pressure derivative of meridional wind (3D array).
+!! @param[in]  dx          Grid spacing in the x-direction.
+!! @param[in]  dy          Grid spacing in the y-direction.
+!! @param[in]  dlev        Pressure level spacing.
+!! @param[out] resid       Residual (3D array).
+!***************************************************************************
 subroutine residgen(rhs,omega,resid,sigma,feta,f,d2zetadp,dudp,dvdp, &
      dx,dy,dlev)
   !
@@ -1313,9 +1684,18 @@ subroutine residgen(rhs,omega,resid,sigma,feta,f,d2zetadp,dudp,dvdp, &
 
 end subroutine residgen
 
-! I think this subroutine is the same as laplace_cart, but it's only used
-! in the solvegen subroutine, so I think it only has to do with solving the
-! LHS of the omega equation.
+  !***************************************************************************
+  !> @brief Calculates the Laplacian of a 3D field.
+  !!
+  !! This subroutine calculates the Laplacian of a 3D field in Cartesian
+  !! coordinates, excluding the contribution of the local value.
+  !!
+  !! @param[in]  f       Input field (3D array).
+  !! @param[in]  dx      Grid spacing in the x-direction.
+  !! @param[in]  dy      Grid spacing in the y-direction.
+  !! @param[out] lapl2   Laplacian of the field (3D array).
+  !! @param[out] coeff   Coefficient for the local value (3D array).
+  !***************************************************************************
 subroutine laplace2_cart(f,dx,dy,lapl2,coeff)
   !
   !      As laplace_cart but
@@ -1404,6 +1784,16 @@ subroutine laplace2_cart(f,dx,dy,lapl2,coeff)
 
 end subroutine laplace2_cart
 
+  !***************************************************************************
+  !> @brief Estimates second pressure derivatives.
+  !!
+  !! This function calculates second pressure derivatives of a 3D field.
+  !! At the top and bottom levels, the derivatives are set to zero.
+  !!
+  !! @param[in]  f       Input field (3D array).
+  !! @param[in]  dp      Pressure interval.
+  !! @return     df2dp2  Second pressure derivatives (3D array).
+  !***************************************************************************
 function p2der(f,dp) result(df2dp2)
   !   Estimation of second pressure derivatives.
   !   At top and bottom levels, these are set to zero
@@ -1438,6 +1828,18 @@ function p2der(f,dp) result(df2dp2)
   end select
 end function p2der
 
+  !***************************************************************************
+  !> @brief Estimates second pressure derivatives excluding the local value.
+  !!
+  !! This subroutine calculates second pressure derivatives of a 3D field,
+  !! excluding the contribution of the local value, and computes the coefficient
+  !! for the local value.
+  !!
+  !! @param[in]  f           Input field (3D array).
+  !! @param[in]  dp          Pressure interval.
+  !! @param[out] df2dp22     Second pressure derivatives (3D array).
+  !! @param[out] coeff       Coefficient for the local value (3D array).
+  !***************************************************************************
 subroutine p2der2(f,dp,df2dp22,coeff)
   !  As p2der, but
   !     - the contribution of the local value is left out
