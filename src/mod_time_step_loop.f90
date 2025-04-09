@@ -128,6 +128,9 @@ contains
           call write3d ( out_file, time-time_1+1, 'fvort', fvort)
           call write3d ( out_file, time-time_1+1, 'diab', q)
           call write3d ( out_file, time-time_1+1, 'ageo', avortt)
+
+          call write3d ( out_file, time-time_1+1, 'mulfact', mulfact)
+          call write3d ( out_file, time-time_1+1, 'sigma', sigma)
        end if
 
     end do
