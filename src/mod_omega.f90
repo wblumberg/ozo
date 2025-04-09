@@ -679,7 +679,8 @@ function fvort(u, v, zeta, corpar, dx, dy, dp, mulfact) result(fv)
   allocate(fv(nlon, nlat, nlev))
 
   ! Debugging: Log input values
-  print *, "fvort: Input values"
+  print *, ""
+  print *, "Computing vorticity advection forcing (fvort)"
   print *, "u: min =", minval(u), ", max =", maxval(u)
   print *, "v: min =", minval(v), ", max =", maxval(v)
   print *, "zeta: min =", minval(zeta), ", max =", maxval(zeta)
@@ -743,7 +744,8 @@ function ftemp(u,v,t,lev,dx,dy,mulfact) result(ft)
    nlev=size(u,3)
    allocate(ft(nlon,nlat,nlev))
 
-   print *, "ftemp: Input values"
+   print *, ""
+   print *, "Computing temperature advection forcing (ftemp)"
    print *, "u: min =", minval(u), ", max =", maxval(u)
    print *, "v: min =", minval(v), ", max =", maxval(v)
    print *, "t: min =", minval(t), ", max =", maxval(t)
@@ -977,10 +979,14 @@ subroutine callsolveQG(rhs,boundaries,omega,nlonx,nlatx,nlevx,&
   !   Better as a separate subroutine?
   !----------------------------------------------------------------------------------------
   do iter=1,itermax
+      print*,''
+      print*,"************* ITERATION: ",iter, " *************"
      !   Each iteration = one (fine->coarse->fine) multigrid cycle
      !
      !   Loop from finer to coarser resolutions
      !
+     print*,''
+     print*,"Looping from fine to coarse grids..."
      do ires=1,nres
                  write(*,*)'fine-coarse:iter,ires',iter,ires
         call solveQG(rhs(:,:,:,ires),boundaries(:,:,:,ires),&
@@ -996,6 +1002,8 @@ subroutine callsolveQG(rhs,boundaries,omega,nlonx,nlatx,nlevx,&
      !
      !      Loop from coarser to finer resolutions
      !
+     print*,''
+     print*,"Looping from coarse to fine grids..."
      do ires=nres-1,1,-1
                 write(*,*)'coarse-fine:iter,ires',iter,ires
         call finen3D(omega(:,:,:,ires+1),dum1,nlonx(ires),nlatx(ires),&
@@ -1164,23 +1172,27 @@ subroutine updateQG(omegaold,omega,sigma,etasq,rhs,dx,dy,dlev,alfa)
   ! This loops over all of the interior gridpoints of the 3D domain
   do k=2,nlev-1
      do j=2,nlat-1
-        do i=1,nlon
+        do i=2,nlon-1
            omega(i,j,k)=(rhs(i,j,k)-sigma(k)*lapl2(i,j,k)- &
                 etasq(i,j,k)*domedp2(i,j,k)) / (sigma(k)*coeff1(i,j,k)+etasq(i,j,k)*coeff2(i,j,k))
         enddo
      enddo
   enddo
-
-     write(*,*)'Updating omega'
+     write(*,*)'lapl2',maxval(lapl2),minval(lapl2)
+     write(*,*)'coeff1',maxval(coeff1),minval(coeff1)
+      write(*,*)'coeff2',maxval(coeff2),minval(coeff2)
+     write(*,*)'domedp2',maxval(domedp2),minval(domedp2)
+     write(*,*)'New omega',maxval(omega),minval(omega)
   maxdiff=0.
   do k=2,nlev-1
      do j=2,nlat-1
-        do i=1,nlon
+        do i=2,nlon-1
            maxdiff=max(maxdiff,abs(omega(i,j,k)-omegaold(i,j,k)))
            omegaold(i,j,k)=alfa*omega(i,j,k)+(1-alfa)*omegaold(i,j,k)
         enddo
      enddo
   enddo
+  print*,'maxdiff',maxdiff
 
 end subroutine updateQG
 
@@ -1549,7 +1561,7 @@ subroutine updategen(omegaold,omega,sigma0,sigma,feta,f,d2zetadp,dudp,dvdp,&
 
   real,dimension(:,:,:),allocatable :: lapl2,domedp2,coeff1,coeff2,coeff
   real,dimension(:,:,:),allocatable :: dum0,dum1,dum3,dum4,dum5,dum6,inv_coeff
-  integer :: j,k,nlon,nlat,nlev
+  integer :: j,k,i,nlon,nlat,nlev
 
   nlon=size(rhs,1)
   nlat=size(rhs,2)
@@ -1605,6 +1617,7 @@ subroutine updategen(omegaold,omega,sigma0,sigma,feta,f,d2zetadp,dudp,dvdp,&
      do j=2,nlat-1
         do i=2,nlon-1
           omegaold(i,j,k)=alfa*omega(i,j,k)+(1-alfa)*omegaold(i,j,k)
+        enddo
      enddo
   enddo
 

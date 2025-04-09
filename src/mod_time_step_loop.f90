@@ -150,17 +150,18 @@ contains
           call write3d ( out_file, time-time_1+1, 'diab', q)
           call write3d ( out_file, time-time_1+1, 'ageo', avortt)
 
-          call write3d ( out_file, time-time_1+1, 'mulfact', mulfact)
+          !call write3d ( out_file, time-time_1+1, 'mulfact', mulfact)
           call write3d ( out_file, time-time_1+1, 'sigma', sigma)
        end if
 
     end do
+    print*,"Finished time stepping loop."
 
     ! Write dimension data to the output file
     if ( calc_omegas .or. mode .eq. 'Q' ) then
        call write_dimensions ( out_file, tdim )
     end if
-
+    
   end associate
 
 contains

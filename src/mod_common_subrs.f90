@@ -485,11 +485,15 @@ contains
        !lapl = lapl * inv_dx
        lapl ( 2 : nlon - 1, :, : ) = ( f ( 1 : nlon - 2, :, : ) + f ( 3 : nlon, :, : ) &
                                        - 2 * f( 2 : nlon - 1, :, : ) ) * inv_dx
+       lapl ( 1, :, : )    = 0
+       lapl ( nlon, :, : ) = 0
 
        ! y-directon
        lapl ( :, 2 : nlat -1, : ) = lapl ( :, 2 : nlat -1, : ) &
             + ( f ( :, 1 : nlat -2, : ) + f ( :, 3 : nlat, :) &
             - 2 * f( :, 2 : nlat -1, : ) ) * inv_dy
+       lapl ( :, 1, : )    = 0
+       lapl ( :, nlat, : ) = 0
 
     case(2)
 

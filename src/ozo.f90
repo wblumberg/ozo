@@ -39,6 +39,6 @@ program zo
   call time_step_loop ( wrfin_file, out_file, param, calc_b, debug)
   call close_wrf_file ( wrfin_file )
   call close_wrf_file ( out_file )
-
+  write(*,*) 'OZO Finished!'
 
 end program zo
