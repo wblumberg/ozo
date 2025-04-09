@@ -1,11 +1,11 @@
 SHELL           = /bin/bash
 FC              = gfortran
-MAKEDEPF90      = ~/bin/makedepf90
-NETCDF_INCLUDES = -I/usr/include
-NETCDF_LIBS     = -L/usr/lib -lnetcdff
-MKLROOT         = /opt/intel/compilers_and_libraries/linux/mkl
-#FCFLAGS         = -g -pg -fbacktrace -fcheck=all -Wall $(NETCDF_INCLUDES) -m64 -I$(MKLROOT)/include
-FCFLAGS         = -Ofast -pg -fbacktrace -fcheck=all -Wall $(NETCDF_INCLUDES) -m64 -I$(MKLROOT)/include
+MAKEDEPF90      = /usr/local/bin/makedepf90
+NETCDF_INCLUDES = -I/usr/lib64/gfortran/modules/
+NETCDF_LIBS     = -L/usr/lib64/ -lnetcdff
+MKLROOT         = /home/gblumberg/intel/oneapi/mkl/latest/
+FCFLAGS         = -g -pg -fbacktrace -fcheck=all -Wall $(NETCDF_INCLUDES) -m64 -I$(MKLROOT)/include
+#FCFLAGS         = -Ofast -pg -fbacktrace -fcheck=all -Wall $(NETCDF_INCLUDES) -m64 -I$(MKLROOT)/include
 LDFLAGS         = $(NETCDF_LIBS) -L$(MKLROOT)/lib/intel64 -Wl,--no-as-needed -lmkl_gf_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 
 PROG            = ozo
@@ -29,7 +29,7 @@ $(PROG) : $(OBJS)
 	$(FC) $(FCFLAGS) -c $<
 
 test : $(PROG)
-	@for test in $^; do cd test; LD_LIBRARY_PATH=$(MKLROOT)/lib/intel64_lin ../$$test < namelist; done
+	@for test in $^; do cd test; LD_LIBRARY_PATH=$(MKLROOT)/lib/ ../$$test < namelist; done
 
 clean :
 	rm  -f *.o *.mod $(PROG)
