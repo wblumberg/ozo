@@ -19,7 +19,7 @@ contains
     integer :: i,j,k,nlon,nlat,factor
     nlon=size(psfc,1); nlat=size(psfc,2)
     allocate(mulfact(nlon,nlat,nlev))
-    factor=2
+    factor=1
 
     select case (factor)
 
@@ -60,6 +60,7 @@ contains
                    mulfact(i,j,k) = 1 + (psfc(i,j)-((lev(1)+pm1)/2))/&
                         (pm1-lev(1))
                 endif
+                print*,"mulfact:",mulfact(i,j,k),psfc(i,j),lev(k),lev(k+1)
              enddo
           enddo
        enddo

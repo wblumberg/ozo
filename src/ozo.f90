@@ -9,7 +9,7 @@ program zo
   type (parameters) :: param
 
   call read_parameters(param)
-  calc_b=.false.
+  calc_b=.false. ! Use boundary conditions from WRF file
 
   if(param % mode.eq.'G')write(*,*)'Generalized omega equation'
   if(param % mode.eq.'Q')write(*,*)'Quasi-geostrophic omega equation'
@@ -28,6 +28,7 @@ program zo
 
 
   wrfin_file = open_wrf_file ( param % infile )
+  write(*,*) 'Now going into if statement to open or create output file'
   if (param % calc_omegas) then
      out_file = create_out_file ( param % outfile, wrfin_file, param % mode, &
           param % calc_b, param % forc )

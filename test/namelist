@@ -1,14 +1,14 @@
 &PARAMETER_NAMELIST
-  infile='/home/mikarant/test_wrf_7tsteps.nc4',
-  outfile='/home/mikarant/ozo_output_100km_7tsteps.nc',
-  time_1=2,time_n=6,
-  alfa=0.2,toler=5e-5,
-  ny1=4,ny2=2,
-  mode='G',
+  infile='/home/gblumberg/Code/ozo/test_rap.nc',
+  outfile='/home/gblumberg/Code/ozo/testout.nc',
+  time_1=2,time_n=2,
+  alfa=0.01,toler=1e-5,
+  ny1=6,ny2=3,
+  mode='Q',
   calc_omegas=.true.,
   calc_div=.false.,
   debug = .true.,
-  forc = .false.,
+  forc = .true.,
   ellipticity_correction = .false.
 /
 

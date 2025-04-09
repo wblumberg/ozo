@@ -105,25 +105,32 @@ contains
     integer :: dimids(4),i,status,varid,varids(4)
     character :: mode
 
+    print*,"Creating a new output file!"
     ! Create a new netcdf file
     call check( nf90_create ( fname, NF90_CLOBBER, f % ncid ) )
 
+    print*,"Copying dimension information from WRF input file"
     ! Copy dimension information from wrf input file
     f % dims = wrf_infile % dims
     f % pressure_levels = wrf_infile % pressure_levels
 
+    print*,"Creating dimensions and their variables in the new file"
     ! Create dimensions and their variables to the new file
     do i=1,3
-       call def_dim(f%ncid,rname(i),dimids(i),f%dims(i),.FALSE.)
-    enddo
-    call def_dim(f%ncid,rname(4),dimids(4),f%dims(4),.TRUE.)
+       !print*, rname(i), dimids(i), f%dims(i), remove_underscores(rname(i)), f%ncid
+       call def_dim(f%ncid, rname(i), dimids(i), f%dims(i), .FALSE.)
+    end do
+    call def_dim(f%ncid, rname(4), dimids(4), f%dims(4), .TRUE.)
 
+    print*,"Adding axis attributes to the dimensions"
     ! Add axis attributes to dimensions
     do i = 1, 4
        call check ( nf90_inq_varid ( &
             f % ncid, trim ( rname ( i ) ), varid ) )
        varids ( i ) = varid
     end do
+
+
     call check( nf90_put_att(f % ncid, varids (1),&
          trim('standard_name'),trim('longitude') ) )
     call check( nf90_put_att(f % ncid, varids (1),&
@@ -151,6 +158,7 @@ contains
     call check( nf90_put_att(f % ncid, varids (4),&
          trim('calendar'),trim('standard') ) )
 
+    print*,"Creating our Omega variables"
     ! Create quasi-geostrophic omega variables
     if (mode.eq.'Q')then
        do i = 1, size ( QG_omega_term_names )
@@ -507,14 +515,30 @@ contains
     character(*) :: dim_name
     integer :: ncid,dimid,varid,len
     logical :: unlimit
-
+     print*,"Creating dimension ",trim(dim_name)," with length ",len
     if(unlimit)then
        call check( nf90_def_dim(ncid, trim(dim_name), NF90_UNLIMITED, dimid) )
     else
        call check( nf90_def_dim(ncid, trim(dim_name), len, dimid) )
     endif
+    print*,"Passed nf90_def_dim",varid
     call check( nf90_def_var(ncid, trim(dim_name), NF90_REAL, dimid, varid) )
 
   end subroutine def_dim
+
+  function remove_underscores(input_string) result(output_string)
+    character(*), intent(in) :: input_string
+    character(len(input_string)) :: output_string
+    integer :: i, j
+
+    j = 1
+    do i = 1, len_trim(input_string)
+       if (input_string(i:i) /= '_') then
+          output_string(j:j) = input_string(i:i)
+          j = j + 1
+       end if
+    end do
+    output_string(j:) = ' '  ! Fill the rest with spaces
+  end function remove_underscores
 
 end module mod_wrf_file

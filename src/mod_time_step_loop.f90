@@ -61,12 +61,13 @@ contains
     allocate ( sigma_elcorr (nlon, nlat, nlev) )
     allocate ( zeta_elcorr (nlon, nlat, nlev) )
 
+    print*,'In time_step_loop'
     call read_T_u_v_z ( wrfin_file, time_1 - 2 )
     call read_T_u_v_z ( wrfin_file, time_1 - 1 )
     i=0
     do time = time_1, time_n
        i=i+1
-       print *, 'Time step: ', time
+       print*,'Time step: ', time
        tdim(i)=time
        call read_T_u_v_z ( wrfin_file, time )
        mu_inv = 1.0 / real2d ( wrfin_file, time, [ 'MU ', 'MUB' ]  )
@@ -171,6 +172,8 @@ contains
     integer, save :: prev = 1, curr = 2, next = 3
     real :: dt2inv
     integer :: i
+    print*,'In read_T_u_v_z'
+
     if ( .not. allocated ( dtvars ) ) then
        associate ( &
             nlon => file % dims ( 1 ), &
@@ -192,6 +195,7 @@ contains
   end do
   if ( time .gt. lbound ( file % times, 1 ) ) then
      dt2inv = 1.0 / ( file % times ( time + 1 ) - file % times ( time - 1 ))
+     print*,"dt2inv",dt2inv,file%times(time + 1), file%times(time - 1)
      dT_dt = (dtvars( :, :, :, 1, next) - dtvars( :, :, :, 1,prev)) * dt2inv
      du_dt = (dtvars( :, :, :, 2, next) - dtvars( :, :, :, 2,prev)) * dt2inv
      dv_dt = (dtvars( :, :, :, 3, next) - dtvars( :, :, :, 3,prev)) * dt2inv

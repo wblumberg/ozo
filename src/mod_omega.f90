@@ -31,11 +31,12 @@ contains
     !   A value of 1 for any of these parameters means that the boundary
     !   condition is taken directly from the "real" WRF omega. In practice,
     !   only the lower boundary condition (ilbound) is important.
-    integer :: iubound,ilbound,iybound
+    integer :: iubound,ilbound,iybound,ixbound
 
     iubound=1 ! 1 for "real" omega as upper-boundary condition
-    ilbound=1 ! 1 for "real" omega as upper-boundary condition
+    ilbound=1 ! 1 for "real" omega as lower-boundary condition
     iybound=1 ! 1 for "real" omega as north/south boundary condtion
+    ixbound=1 ! 1 for "real" omega as east/west boundary condition
 
     associate ( &
          alfa => param % alfa, &
@@ -90,7 +91,9 @@ contains
     if(mode.eq.'G'.or.mode.eq.'Q')then
        rhs(:,:,:,1,termV) = fvort(u,v,zetaraw,corfield(:,:,:,1),dx,dy,dlev,&
             mulfact)
+       write(*,*),"FVORT Stats:",maxval(rhs(:,:,:,1,termV)),minval(rhs(:,:,:,1,termV))
        rhs(:,:,:,1,termT) = ftemp(u,v,t,lev,dx,dy,mulfact)
+       write(*,*),"FTEMP Stats:",maxval(rhs(:,:,:,1,termT)),minval(rhs(:,:,:,1,termT))
     endif
 
     if(mode.eq.'G')then
@@ -164,10 +167,17 @@ contains
     !
     boundaries=0.
     if ( calc_b ) then
+       ! Set the upper and lower boundary conditions (top and bottom of 3D grid)
        boundaries(:,:,1,1)=iubound*omegaan(:,:,1)
        boundaries(:,:,nlev,1)=ilbound*omegaan(:,:,nlev)
+
+       ! Set the north and south boundary conditions (north and south of 3D grid)
        boundaries(:,1,2:nlev-1,1)=iybound*omegaan(:,1,2:nlev-1)
        boundaries(:,nlat,2:nlev-1,1)=iybound*omegaan(:,nlat,2:nlev-1)
+
+       ! Set the east and west boundary conditions (east and west of 3D grid)
+       boundaries(1,:,2:nlev-1,1)=ixbound*omegaan(1,:,2:nlev-1)
+       boundaries(nlon,:,2:nlev-1,1)=ixbound*omegaan(nlon,:,2:nlev-1)
     end if
     !   Regrid left-hand-side parameters and boundary conditions to
     !   coarser grids. Note that non-zero boundary conditions are only
@@ -227,7 +237,7 @@ contains
     if(mode.eq.'G')then
 
        do i=1,5
-          if(debug)print*,omega_long_names(i)
+          if(debug)print*,"SOLVING GENERALIZED OMEGA FOR:", omega_long_names(i)
           call callsolvegen(rhs(:,:,:,:,i),zero,omega,nlonx,nlatx,nlevx,dx2,&
                dy2,dlev2,sigma0,sigma,feta,corfield,d2zetadp,dudp,dvdp,nres,&
                alfa,toler,ny1,ny2,debug)
@@ -501,27 +511,53 @@ function aave(f) result(res)
 
 end function aave
 
-function fvort(u,v,zeta,corpar,dx,dy,dp,mulfact) result(fv)
+function fvort(u, v, zeta, corpar, dx, dy, dp, mulfact) result(fv)
   !   Calculation of vorticity advection forcing
-  !   Input: u,v,zeta
+  !   Input: u, v, zeta
   !   Output: stored in "fv"
   !
-  real,dimension(:,:,:),intent(in) :: u,v,zeta,mulfact,corpar
-  real,dimension(:,:,:),allocatable :: adv,dadvdp,fv
-  real,intent(in) :: dx,dy,dp
-  integer :: nlon,nlat,nlev
+  real, dimension(:,:,:), intent(in) :: u, v, zeta, mulfact, corpar
+  real, dimension(:,:,:), allocatable :: adv, dadvdp, fv
+  real, intent(in) :: dx, dy, dp
+  integer :: nlon, nlat, nlev
 
-  nlon=size(u,1)
-  nlat=size(u,2)
-  nlev=size(u,3)
-  allocate(fv(nlon,nlat,nlev))
+  nlon = size(u, 1)
+  nlat = size(u, 2)
+  nlev = size(u, 3)
+  allocate(fv(nlon, nlat, nlev))
 
-  adv = advect_cart(u,v,zeta+corpar,dx,dy)
-  adv = adv*mulfact
+  ! Debugging: Log input values
+  print *, "fvort: Input values"
+  print *, "u: min =", minval(u), ", max =", maxval(u)
+  print *, "v: min =", minval(v), ", max =", maxval(v)
+  print *, "zeta: min =", minval(zeta), ", max =", maxval(zeta)
+  print *, "corpar: min =", minval(corpar), ", max =", maxval(corpar)
+  print *, "mulfact: min =", minval(mulfact), ", max =", maxval(mulfact)
+  print *, "dx =", dx, ", dy =", dy, ", dp =", dp
 
-  dadvdp = pder(adv,dp)
+  ! Calculate advection
+  adv = advect_cart(u, v, zeta + corpar, dx, dy)
+  print *, "fvort: adv (after advect_cart): min =", minval(adv), ", max =", maxval(adv)
 
-  fv=corpar*dadvdp
+  ! Apply multiplication factor
+  adv = adv * mulfact
+  print *, "fvort: adv (after multiplying by mulfact): min =", minval(adv), ", max =", maxval(adv)
+
+  ! Calculate pressure derivative
+  dadvdp = pder(adv, dp)
+  print *, "fvort: dadvdp (after pder): min =", minval(dadvdp), ", max =", maxval(dadvdp)
+
+  ! Calculate final result
+  fv = corpar * dadvdp
+  print *, "fvort: fv (final result): min =", minval(fv), ", max =", maxval(fv)
+
+  ! Check for invalid values
+  !if (any(isnan(fv))) then
+  !  print *, "Error: fv contains NaN values!"
+  !end if
+  !if (any(isinf(fv))) then
+  !  print *, "Error: fv contains Inf values!"
+  !end if
 
 end function fvort
 
@@ -577,7 +613,7 @@ function ffrict(fx,fy,corpar,dx,dy,dp,mulfact) result(ff)
 end function ffrict
 
 function fdiab(q,lev,dx,dy,mulfact) result(fq)
-  !   Calculation of diabatic heaging forcing
+  !   Calculation of diabatic heating forcing
   !   Input: q = diabatic temperature tendency (already normalized by cp)
   !   Output: stored in "fq"
   !
@@ -673,7 +709,7 @@ subroutine callsolveQG(rhs,boundaries,omega,nlonx,nlatx,nlevx,&
      !   Loop from finer to coarser resolutions
      !
      do ires=1,nres
-        !         write(*,*)'fine-coarse:iter,ires',iter,ires
+                 write(*,*)'fine-coarse:iter,ires',iter,ires
         call solveQG(rhs(:,:,:,ires),boundaries(:,:,:,ires),&
              omega(:,:,:,ires),omegaold(:,:,:,ires),nlonx(ires),nlatx(ires),&
              nlevx(ires),dx(ires),dy(ires),dlev(ires),sigma0(:,ires),&
@@ -688,7 +724,7 @@ subroutine callsolveQG(rhs,boundaries,omega,nlonx,nlatx,nlevx,&
      !      Loop from coarser to finer resolutions
      !
      do ires=nres-1,1,-1
-        !        write(*,*)'coarse-fine:iter,ires',iter,ires
+                write(*,*)'coarse-fine:iter,ires',iter,ires
         call finen3D(omega(:,:,:,ires+1),dum1,nlonx(ires),nlatx(ires),&
              nlevx(ires),nlonx(ires+1),nlatx(ires+1),nlevx(ires+1))
         !        Without the underrelaxation (coefficient alfa), the solution diverges
@@ -700,6 +736,7 @@ subroutine callsolveQG(rhs,boundaries,omega,nlonx,nlatx,nlevx,&
              feta(:,:,:,ires),ny2,alfa,.false.,resid)
      enddo
 
+     ! Determine how much the omega grid has changed since the last iteration
      maxdiff=0.
      do k=1,nlevx(1)
         do j=1,nlatx(1)
@@ -711,8 +748,8 @@ subroutine callsolveQG(rhs,boundaries,omega,nlonx,nlatx,nlevx,&
      if(debug)print*,iter,maxdiff
      if(maxdiff.lt.toler.or.iter.eq.itermax)then
         if(debug)write(*,*)'iter,maxdiff',iter,maxdiff
-        goto 10
-     endif
+        goto 10 ! exit loop if we've hit our threshold
+     endif 
 
      omegaold=omega
 
@@ -746,17 +783,30 @@ subroutine solveQG(rhs,boundaries,omega,omegaold,nlon,nlat,nlev,&
   real,intent(in) :: sigma0(nlev),dx,dy,dlev,alfa
   integer :: i,j,k
 
+  ! TODO: Add a loop here to propagate the boundary conditions in the x-direction
   do j=1,nlat
      do i=1,nlon
+        ! Set the bottom and top (surface and top of atmos) boundary conditions
         omegaold(i,j,1)=boundaries(i,j,1)
         omegaold(i,j,nlev)=boundaries(i,j,nlev)
      enddo
   enddo
+
   do k=2,nlev-1
      do i=1,nlon
+        ! Set the boundary conditions of the south and north grid edges
         omegaold(i,1,k)=boundaries(i,1,k)
         omegaold(i,nlat,k)=boundaries(i,nlat,k)
      enddo
+  enddo
+
+  ! ADDED BY WGB on 4/8/2025
+  do k=2,nlev-1
+    do i=1,nlat
+        ! Set the boundary conditions of the eastern and western grid edges
+        omegaold(1,i,k)=boundaries(1,i,k)
+        omegaold(nlon,i,k)=boundaries(nlon,i,k)
+    enddo
   enddo
 
   omega=omegaold
@@ -797,9 +847,10 @@ subroutine updateQG(omegaold,omega,sigma,etasq,rhs,dx,dy,dlev,alfa)
   !   Top and bottom levels: omega directly from the boundary conditions,
   !   does not need to be solved.
   !
-  call laplace2_cart(omegaold,dx,dy,lapl2,coeff1)
-  call p2der2(omegaold,dlev,domedp2,coeff2)
+  call laplace2_cart(omegaold,dx,dy,lapl2,coeff1) ! Calculate the LHS1_QG Laplacian
+  call p2der2(omegaold,dlev,domedp2,coeff2) ! Calculate the LHS2_QG 2nd Vertical Derivative
 
+  ! This loops over all of the interior gridpoints of the 3D domain
   do k=2,nlev-1
      do j=2,nlat-1
         do i=1,nlon
@@ -810,7 +861,7 @@ subroutine updateQG(omegaold,omega,sigma,etasq,rhs,dx,dy,dlev,alfa)
      enddo
   enddo
 
-  !   write(*,*)'Updating omega'
+     write(*,*)'Updating omega'
   maxdiff=0.
   do k=2,nlev-1
      do j=2,nlat-1
@@ -894,6 +945,8 @@ subroutine callsolvegen(rhs,boundaries,omega,nlon,nlat,nlev,&
   omega=0.
   omegaold=boundaries
 
+  !------------------------------------------------------------------------------
+  !
   !
   !      This far: the whole multigrid cycle is written explicitly here
   !
@@ -904,6 +957,24 @@ subroutine callsolvegen(rhs,boundaries,omega,nlon,nlat,nlev,&
      !
      !   Loop from finer to coarser resolutions
      !
+     write(*,*),"######### RHS FORCING AND LHS TERMS #########"
+     do k=1,nlev(1)
+       write(*,*),"** NEW VERTICAL LEVEL **"
+       do j=1,nlat(1)
+         do i=1,nlon(1)
+           write(*,*),"RHS Forcing:",rhs(i,j,k,1),i,j,k
+           write(*,*),"Boundaries:", boundaries(i,j,k,1)
+           write(*,*),"Sigma:", sigma(i,j,k,1)
+           write(*,*),"feta:",feta(i,j,k,1)
+           write(*,*),"dvdp:",dvdp(i,j,k,1)
+           write(*,*),"dudp:",dudp(i,j,k,1)
+           write(*,*),"corfield:",corfield(i,j,k,1)
+           write(*,*),"d2zetadp:",d2zetadp(i,j,k,1)
+         enddo
+       enddo
+     enddo
+
+     ! Solve the generalized omega equation first on progressively coarser grids
      do ires=1,nres
 
         call solvegen(rhs(:,:,:,ires),boundaries(:,:,:,ires),&
@@ -937,14 +1008,22 @@ subroutine callsolvegen(rhs,boundaries,omega,nlon,nlat,nlev,&
              alfa,.false.,resid)
      enddo
 
+     ! Determine the maximum difference between the omega grid from this 
+     ! iteration (iter) vs. the omega grid from the last iteration (iter-1)
+     write(*,*),"######## GENERALIZED OMEGA SOLUTION ########"
      maxdiff=0.
      do k=1,nlev(1)
         do j=1,nlat(1)
            do i=1,nlon(1)
+              write(*,*),omega(i,j,k,1),i,j,k
               maxdiff=max(maxdiff,abs(omega(i,j,k,1)-omega1(i,j,k)))
            enddo
         enddo
      enddo
+
+     ! If our updates to the omega grid with each iteration
+     ! doesn't change omega much (and is past our tolerance)
+     ! end the iteration loop.
      if(debug)write(*,*)iter,maxdiff
      if(maxdiff.lt.toler.or.iter.eq.itermax)then
         if(debug)write(*,*)'iter,maxdiff',iter,maxdiff
@@ -1017,10 +1096,11 @@ subroutine solvegen(rhs,boundaries,omega,omegaold,nlon,nlat,nlev,&
         omegaold(i,nlat,k)=boundaries(i,nlat,k)
      enddo
   enddo
+  ! TODO: Add loop that saves the boundary conditions in the X direction too
 
   omega=omegaold
 
-  do i=1,niter
+  do i=1,niter !ny1 or ny2 (depending on when solvegen is called)
      call updategen(omegaold,omega,sigma0,sigma,feta,corpar,d2zetadp,dudp,&
           dvdp,rhs,dx,dy,dlev,alfa)
   enddo
@@ -1100,6 +1180,7 @@ subroutine updategen(omegaold,omega,sigma0,sigma,feta,f,d2zetadp,dudp,dvdp,&
   !   Solving for omega
   !   Old values are retained at y and z boundaries.
   !
+  !   TODO: Retain the values at the x boundary as well!
   do k=2,nlev-1
      coeff(:,2:nlat-1,k)=sigma0(k)*coeff1(:,2:nlat-1,k) &
           + feta(:,2:nlat-1,k)*coeff2(:,2:nlat-1,k) &
@@ -1152,20 +1233,20 @@ subroutine residgen(rhs,omega,resid,sigma,feta,f,d2zetadp,dudp,dvdp, &
   !    a) nabla^2(sigma*omega)
   dum0=omega*sigma
 
-  dum1 = laplace_cart(dum0,dx,dy)
+  dum1 = laplace_cart(dum0,dx,dy) !LHS1
   !
   !   b) f*eta*d2omegadp
   dum2 = p2der(omega,dlev)
   !
-  dum3=feta*dum2
+  dum3=feta*dum2 !LHS2
   !
-  !   c) -f*omega*(d2zetadp): explicitly, later
+  !   c) -f*omega*(d2zetadp): explicitly, later (vertical vort. adv.)
   !
   !   d) tilting
   dum4 = xder_cart(omega,dx)
   dum5 = yder_cart(omega,dy)
 
-  dum6=f*(dudp*dum5-dvdp*dum4)
+  dum6=f*(dudp*dum5-dvdp*dum4) ! compute T1 and T2 (tilting terms)
   dum2 = pder(dum6,dlev)
 
   resid=rhs-(dum1+dum2+dum3-f*d2zetadp*omega)
