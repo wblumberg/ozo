@@ -3,11 +3,29 @@ module mod_common_subrs
   implicit none
 contains
 
-  !-------------------------------------------------------------------------------
-  ! This module contains some general subroutines which can be used both
-  ! generalized omega equation and Zwack-okossi equation.
-  !-------------------------------------------------------------------------------
+  !> @file mod_common_subrs.f90
+  !! @brief This module contains common subroutines and functions used across the project.
+  !!
+  !! This file provides utility routines that are shared among different parts
+  !! of the codebase. Each subroutine or function is documented individually
+  !! with its purpose, input arguments, and output values.
+  !!
+  !! @note Ensure that this module is properly included in the relevant parts
+  !! of the project to access its functionality.
 
+  !***************************************************************************
+  !> @brief Calculates multiplication factors for the attenuation of below-ground forcings.
+  !!
+  !! This function computes the multiplication factors based on surface pressure
+  !! and vertical levels. It supports two versions of the calculation.
+  !!
+  !! @param[in]  psfc   Surface pressure (2D array: longitude x latitude)
+  !! @param[in]  lev    Vertical levels (1D array)
+  !! @param[in]  nlev   Number of vertical levels
+  !! @return     mulfact Multiplication factors (3D array: longitude x latitude x level)
+  !!
+  !! @note The function uses a `select case` block to choose between two calculation methods.
+  !***************************************************************************
   function calmul(psfc,lev,nlev) result (mulfact)
     !   Calculation of multiplication factors for the attenuation of
     !   below-ground forcings
@@ -63,11 +81,28 @@ contains
                 print*,"mulfact:",mulfact(i,j,k),psfc(i,j),lev(k),lev(k+1)
              enddo
           enddo
+  
        enddo
 
     end select
   end function calmul
 
+  !***************************************************************************
+  !> @brief Calculates the irrotational wind components (uKhi, vKhi) from the velocity potential.
+  !!
+  !! This subroutine computes the divergence of the wind field, solves the Poisson equation
+  !! to obtain the velocity potential, and derives the irrotational wind components.
+  !!
+  !! @param[in]  u       Zonal wind component (3D array: longitude x latitude x level)
+  !! @param[in]  v       Meridional wind component (3D array: longitude x latitude x level)
+  !! @param[in]  dx      Grid spacing in the x-direction (longitude)
+  !! @param[in]  dy      Grid spacing in the y-direction (latitude)
+  !! @param[out] uKhi    Irrotational zonal wind component (3D array)
+  !! @param[out] vKhi    Irrotational meridional wind component (3D array)
+  !!
+  !! @note Assumes periodic boundary conditions in the x-direction and uses a spectral method
+  !!       for solving the Poisson equation.
+  !***************************************************************************
   subroutine irrotationalWind(u,v,dx,dy,uKhi,vKhi)
     !   This subroutine calculates irrotational wind components (uKhi,vKhi) from
     !   velocity potential.
@@ -109,6 +144,18 @@ contains
 
   end subroutine irrotationalWind
 
+  !***************************************************************************
+  !> @brief Computes the vorticity (curl) in Cartesian coordinates.
+  !!
+  !! This function calculates the curl of the wind field using the derivatives
+  !! of the zonal and meridional wind components.
+  !!
+  !! @param[in]  u       Zonal wind component (3D array)
+  !! @param[in]  v       Meridional wind component (3D array)
+  !! @param[in]  dx      Grid spacing in the x-direction
+  !! @param[in]  dy      Grid spacing in the y-direction
+  !! @return     zeta    Vorticity (3D array)
+  !***************************************************************************
   function curl_cart ( u, v, dx, dy ) result ( zeta )
     real, dimension ( :, :, : ), intent ( in ) :: u, v
     real,                        intent ( in ) :: dx,dy
@@ -123,6 +170,16 @@ contains
 
   end function curl_cart
 
+  !***************************************************************************
+  !> @brief Estimates pressure derivatives using finite differences.
+  !!
+  !! This function computes pressure derivatives with selectable accuracy
+  !! (second-order or fourth-order).
+  !!
+  !! @param[in]  f       Input field (3D array)
+  !! @param[in]  dp      Pressure interval
+  !! @return     dfdp    Pressure derivatives (3D array)
+  !***************************************************************************
   function pder(f,dp) result (dfdp)
     !   Estimation of pressure derivatives.
     !   One-sided derivatives are used at top and bottom levels
@@ -163,8 +220,21 @@ contains
 
   end function pder
 
+  !***************************************************************************
+  !> @brief Computes x-derivatives in Cartesian coordinates.
+  !!
+  !! This function calculates the x-derivatives of a field assuming periodic
+  !! boundary conditions in the x-direction.
+  !!
+  !! @param[in]  f       Input field (3D array)
+  !! @param[in]  dx      Grid spacing in the x-direction
+  !! @return     dfdx    x-derivatives (3D array)
+  !***************************************************************************
   function xder_cart(f,dx) result(dfdx)
     !   Calculation of x derivatives. Periodic domain in x assumed
+    !   acc is the accuracy of the derivative
+    !   acc=1 means second-order accuracy
+    !   acc=2 means fourth-order accuracy
     implicit none
 
     real,dimension(:,:,:),intent(in) :: f
@@ -217,6 +287,16 @@ contains
 
   end function xder_cart
 
+  !***************************************************************************
+  !> @brief Computes y-derivatives in Cartesian coordinates.
+  !!
+  !! This function calculates the y-derivatives of a field using one-sided
+  !! estimates at the boundaries.
+  !!
+  !! @param[in]  f       Input field (3D array)
+  !! @param[in]  dy      Grid spacing in the y-direction
+  !! @return     dfdy    y-derivatives (3D array)
+  !***************************************************************************
   function yder_cart(f,dy) result(dfdy)
     !   Calculation of y derivatives
     !   One-sided estimates are used at the southern and northern boundaries
@@ -269,6 +349,18 @@ contains
 
   end function yder_cart
 
+  !***************************************************************************
+  !> @brief Computes advection in Cartesian coordinates.
+  !!
+  !! This function calculates the advection term (u * dfdx + v * dfdy).
+  !!
+  !! @param[in]  u       Zonal wind component (3D array)
+  !! @param[in]  v       Meridional wind component (3D array)
+  !! @param[in]  f       Scalar field (3D array)
+  !! @param[in]  dx      Grid spacing in the x-direction
+  !! @param[in]  dy      Grid spacing in the y-direction
+  !! @return     adv     Advection term (3D array)
+  !***************************************************************************
   function advect_cart(u,v,f,dx,dy) result(adv)
     !   Computing u*dfdx + v*dfdy in cartesian coordinates
     implicit none
@@ -285,6 +377,16 @@ contains
 
   end function advect_cart
 
+  !***************************************************************************
+  !> @brief Calculates the sigma stability parameter in isobaric coordinates.
+  !!
+  !! This function computes the sigma parameter based on temperature and
+  !! pressure levels.
+  !!
+  !! @param[in]  t       Temperature field (3D array)
+  !! @param[in]  lev     Pressure levels (1D array)
+  !! @return     sigma   Sigma stability parameter (3D array)
+  !***************************************************************************
   function define_sigma(t,lev) result(sigma)
     !   Calculatig sigma stability parameter in isobaric coordinates
     use mod_const
@@ -312,6 +414,16 @@ contains
 
   end function define_sigma
 
+  !***************************************************************************
+  !> @brief Calculates the Sp stability parameter.
+  !!
+  !! This function computes the Sp parameter based on the sigma parameter
+  !! and pressure levels.
+  !!
+  !! @param[in]  sigma   Sigma stability parameter (3D array)
+  !! @param[in]  lev     Pressure levels (1D array)
+  !! @return     sp      Sp stability parameter (3D array)
+  !***************************************************************************
   function define_sp(sigma,lev) result(sp)
     !   Calculating Sp stability parameter
     use mod_const
@@ -330,6 +442,17 @@ contains
 
   end function define_sp
 
+  !***************************************************************************
+  !> @brief Computes the Laplace operator in Cartesian coordinates.
+  !!
+  !! This function calculates the Laplacian of a field assuming periodic
+  !! boundary conditions in the x-direction.
+  !!
+  !! @param[in]  f       Input field (3D array)
+  !! @param[in]  dx      Grid spacing in the x-direction
+  !! @param[in]  dy      Grid spacing in the y-direction
+  !! @return     lapl    Laplacian of the field (3D array)
+  !***************************************************************************
   function laplace_cart(f,dx,dy) result(lapl)
     !     Laplace operator in cartesian coordinates.
     !     The domain is assumed to be periodic in east-west-direction

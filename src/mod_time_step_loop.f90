@@ -1,3 +1,12 @@
+!> @file mod_time_step_loop.f90
+!! @brief This module contains the main time-stepping loop and related subroutines.
+!!
+!! This module implements the main time-stepping loop for the simulation, as well as
+!! various utility subroutines for reading, writing, and processing data.
+!!
+!! @note Ensure that this module is properly included in the relevant parts
+!! of the project to access its functionality.
+
 module mod_time_step_loop
   use mod_wrf_file
   use mod_subrs
@@ -8,6 +17,18 @@ module mod_time_step_loop
 
 contains
 
+  !***************************************************************************
+  !> @brief Main time-stepping loop to calculate each WRF output grid.
+  !!
+  !! This subroutine implements the main time-stepping loop, reading input data,
+  !! solving the QG Omega or Generalized Omega equations, and writing output data.
+  !!
+  !! @param[in]  wrfin_file Input WRF file structure.
+  !! @param[in]  out_file   Output WRF file structure.
+  !! @param[in]  param      Simulation parameters.
+  !! @param[in]  calc_b     Logical flag to use WRF omegas as boundary conditions.
+  !! @param[in]  debug      Logical flag to enable debug output.
+  !***************************************************************************
   subroutine time_step_loop ( wrfin_file, out_file, param, calc_b, debug)
     ! This subroutine contains the main time stepping loop. It gets both
     ! input and output files as input arguments.
@@ -144,6 +165,14 @@ contains
 
 contains
 
+  !***************************************************************************
+  !> @brief Writes dimension data to the output file.
+  !!
+  !! This subroutine writes the spatial and temporal dimensions to the output file.
+  !!
+  !! @param[in]  file Output WRF file structure.
+  !! @param[in]  tdim Time dimension array.
+  !***************************************************************************
   subroutine write_dimensions ( file, tdim )
     ! This subroutine writes dimension data to the output file.
     type ( wrf_file ) :: file
@@ -164,6 +193,15 @@ contains
 
   end subroutine write_dimensions
 
+  !***************************************************************************
+  !> @brief Reads T, u, v, and z fields from the input file.
+  !!
+  !! This subroutine reads temperature, zonal wind, meridional wind, and geopotential
+  !! height fields from the input file and calculates their tendencies.
+  !!
+  !! @param[in]  file Input WRF file structure.
+  !! @param[in]  time Time index to read data for.
+  !***************************************************************************
   subroutine read_T_u_v_z ( file, time )
     ! This subroutine reads T,u,v and Z fields from the input file
     ! and calculate tendencies of them
@@ -206,6 +244,15 @@ contains
   end if
 end subroutine read_T_u_v_z
 
+  !***************************************************************************
+  !> @brief Reads omega terms from the output file.
+  !!
+  !! This function reads omega terms from the output file for a given time step.
+  !!
+  !! @param[in]  file Output WRF file structure.
+  !! @param[in]  time Time index to read data for.
+  !! @return     read_omegas Omega terms (4D array: longitude x latitude x level x term).
+  !***************************************************************************
 function read_omegas ( file, time )
   type ( wrf_file ) :: file
   integer, intent ( in ) :: time
@@ -223,6 +270,16 @@ function read_omegas ( file, time )
 end associate
 end function read_omegas
 
+  !***************************************************************************
+  !> @brief Computes diabatic heating.
+  !!
+  !! This function calculates diabatic heating based on input data and pressure levels.
+  !!
+  !! @param[in]  file   Input WRF file structure.
+  !! @param[in]  time   Time index to read data for.
+  !! @param[in]  mu_inv Inverse of the dry air mass.
+  !! @return     q      Diabatic heating (3D array: longitude x latitude x level).
+  !***************************************************************************
 function diabatic_heating ( file, time, mu_inv ) result ( q )
 type ( wrf_file ), intent ( in ) :: file
 integer, intent ( in ) :: time
@@ -251,6 +308,17 @@ end do
 end associate
 end function diabatic_heating
 
+  !***************************************************************************
+  !> @brief Loads in friction-related terms from the WRF input file.
+  !!
+  !! This function retrieves friction terms for the zonal or meridional wind components.
+  !!
+  !! @param[in]  file      Input WRF file structure.
+  !! @param[in]  time      Time index to read data for.
+  !! @param[in]  direction Direction ('U' for zonal, 'V' for meridional).
+  !! @param[in]  mu_inv    Inverse of the dry air mass.
+  !! @return     friction  Friction terms (3D array: longitude x latitude x level).
+  !***************************************************************************
 function friction ( file, time, direction, mu_inv )
 type ( wrf_file ), intent ( in ) :: file
 integer, intent ( in ) :: time
@@ -274,6 +342,16 @@ do lev = 1, size ( friction, 3 )
 end do
 end function friction
 
+  !***************************************************************************
+  !> @brief Writes height tendencies to the output file.
+  !!
+  !! This subroutine writes height tendency terms to the output file.
+  !!
+  !! @param[in]  file    Output WRF file structure.
+  !! @param[in]  time    Time index to write data for.
+  !! @param[in]  calc_b  Logical flag to enable additional calculations.
+  !! @param[in]  hTends  Height tendencies (4D array: longitude x latitude x level x term).
+  !***************************************************************************
 subroutine write_height_tendencies ( file, time, calc_b, hTends )
 type ( wrf_file ), intent ( in ) :: file
 integer, intent ( in ) :: time
@@ -305,6 +383,16 @@ end if
 end associate
 end subroutine write_height_tendencies
 
+  !***************************************************************************
+  !> @brief Writes omega terms to the output file.
+  !!
+  !! This subroutine writes omega terms to the output file for a given time step.
+  !!
+  !! @param[in]  file    Output WRF file structure.
+  !! @param[in]  time    Time index to write data for.
+  !! @param[in]  calc_b  Logical flag to enable additional calculations.
+  !! @param[in]  omegas  Omega terms (4D array: longitude x latitude x level x term).
+  !***************************************************************************
 subroutine write_omegas ( file, time, calc_b, omegas )
 type ( wrf_file ), intent ( in ) :: file
 integer, intent ( in ) :: time
@@ -337,6 +425,16 @@ end if
 end associate
 end subroutine write_omegas
 
+  !***************************************************************************
+  !> @brief Writes QG omega terms to the output file.
+  !!
+  !! This subroutine writes quasi-geostrophic (QG) omega terms to the output file.
+  !!
+  !! @param[in]  file       Output WRF file structure.
+  !! @param[in]  time       Time index to write data for.
+  !! @param[in]  omegas_QG  QG omega terms (4D array: longitude x latitude x level x term).
+  !! @param[in]  calc_b     Logical flag to enable additional calculations.
+  !***************************************************************************
 subroutine write_omegas_QG ( file, time, omegas_QG, calc_b )
 type ( wrf_file ), intent ( in ) :: file
 integer, intent ( in ) :: time
@@ -369,6 +467,16 @@ end if
 end associate
 end subroutine write_omegas_QG
 
+  !***************************************************************************
+  !> @brief Writes a 3D grid to the output file.
+  !!
+  !! This subroutine writes 3D data (longitude x latitude x level) to the output file.
+  !!
+  !! @param[in]  file Output WRF file structure.
+  !! @param[in]  time Time index to write data for.
+  !! @param[in]  name Variable name to write.
+  !! @param[in]  data 3D data array to write.
+  !***************************************************************************
 subroutine write3d ( file, time, name, data )
 type ( wrf_file ), intent ( in ) :: file
 integer, intent ( in ) :: time
@@ -393,6 +501,16 @@ end associate
 
 end subroutine write3d
 
+  !***************************************************************************
+  !> @brief Writes a 2D grid to the output file.
+  !!
+  !! This subroutine writes 2D data (longitude x latitude) to the output file.
+  !!
+  !! @param[in]  file Output WRF file structure.
+  !! @param[in]  time Time index to write data for.
+  !! @param[in]  name Variable name to write.
+  !! @param[in]  data 2D data array to write.
+  !***************************************************************************
 subroutine write2d ( file, time, name, data )
 type ( wrf_file ), intent ( in ) :: file
 integer, intent ( in ) :: time

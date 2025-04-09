@@ -1,3 +1,12 @@
+!> @file mod_wrf_file.f90
+!! @brief This module handles WRF file operations, including reading, writing, and defining variables.
+!!
+!! This module provides utilities for working with WRF NetCDF files, including
+!! reading parameters, creating output files, and managing dimensions and variables.
+!!
+!! @note Ensure that this module is properly included in the relevant parts
+!! of the project to access its functionality.
+
 module mod_wrf_file
   use mod_const
   use netcdf
@@ -64,6 +73,14 @@ module mod_wrf_file
 
 contains
 
+  !***************************************************************************
+  !> @brief Reads simulation parameters from a namelist.
+  !!
+  !! This subroutine reads simulation parameters from a namelist and populates
+  !! the `parameters` type structure.
+  !!
+  !! @param[out] param Parameters structure to populate.
+  !***************************************************************************
   subroutine read_parameters(param)
     type (parameters), intent(out) :: param
     character*140 :: infile, outfile
@@ -96,7 +113,19 @@ contains
 
   end subroutine read_parameters
 
-
+  !***************************************************************************
+  !> @brief Creates a new output WRF file.
+  !!
+  !! This function creates a new NetCDF output file based on the input WRF file,
+  !! copying dimensions and defining variables.
+  !!
+  !! @param[in]  fname      Name of the output file to create.
+  !! @param[in]  wrf_infile Input WRF file structure.
+  !! @param[in]  mode       Mode of operation ('Q' for QG omega, others for generalized omega).
+  !! @param[in]  calc_b     Logical flag to include boundary condition variables.
+  !! @param[in]  forc       Logical flag to include forcing variables.
+  !! @return     f          Output WRF file structure.
+  !***************************************************************************
   function create_out_file ( fname, wrf_infile, mode, calc_b, forc ) result ( f )
     character ( * ),   intent ( in ) :: fname ! file name
     type ( wrf_file ), intent ( in ) :: wrf_infile ! wrf inputfile
@@ -330,6 +359,18 @@ contains
 
   end function create_out_file
 
+  !***************************************************************************
+  !> @brief Defines a 3D field in the NetCDF file.
+  !!
+  !! This subroutine defines a 3D variable in the NetCDF file with the given
+  !! description and units.
+  !!
+  !! @param[in] ncid    NetCDF file ID.
+  !! @param[in] name    Name of the variable.
+  !! @param[in] desc    Description of the variable.
+  !! @param[in] units   Units of the variable.
+  !! @param[in] dimids  Dimension IDs for the variable.
+  !***************************************************************************
   subroutine define_field3d(ncid, name, desc, units, dimids)
     integer, intent(in) :: ncid, dimids(4)
     integer :: varid
@@ -350,6 +391,15 @@ contains
 
   end subroutine define_field3d
 
+  !***************************************************************************
+  !> @brief Opens an existing WRF input file.
+  !!
+  !! This function opens an existing WRF NetCDF file and retrieves its dimensions,
+  !! attributes, and pressure levels.
+  !!
+  !! @param[in]  fname Name of the input file to open.
+  !! @return     f     WRF file structure with metadata and dimensions populated.
+  !***************************************************************************
   function open_wrf_file ( fname ) result ( f )
     character ( * ), intent ( in ) :: fname
     type ( wrf_file ) :: f
@@ -420,11 +470,26 @@ contains
     print*,"Input file opened succesfully!"
   end function open_wrf_file
 
+  !***************************************************************************
+  !> @brief Closes a WRF file.
+  !!
+  !! This subroutine closes an open WRF NetCDF file.
+  !!
+  !! @param[in] file WRF file structure to close.
+  !***************************************************************************
   subroutine close_wrf_file ( file )
     type ( wrf_file ) :: file
     call check ( nf90_close ( file % ncid ) )
   end subroutine close_wrf_file
 
+  !***************************************************************************
+  !> @brief Opens an existing WRF output file.
+  !!
+  !! This function opens an existing WRF NetCDF output file and retrieves its dimensions.
+  !!
+  !! @param[in]  fname Name of the output file to open.
+  !! @return     f     WRF file structure with metadata and dimensions populated.
+  !***************************************************************************
   function open_out_file ( fname ) result ( f )
     character ( * ), intent ( in ) :: fname
     type ( wrf_file ) :: f
@@ -442,6 +507,17 @@ contains
 
   end function open_out_file
 
+  !***************************************************************************
+  !> @brief Reads a 2D variable from the WRF file.
+  !!
+  !! This function reads a 2D variable (longitude x latitude) from the WRF file
+  !! for a given time step.
+  !!
+  !! @param[in]  file  WRF file structure.
+  !! @param[in]  time  Time index to read data for.
+  !! @param[in]  names Array of variable names to read and sum.
+  !! @return     real2d 2D array of the variable data.
+  !***************************************************************************
   function real2d ( file, time, names )
     type ( wrf_file ), intent ( in ) :: file
     integer, intent ( in ) :: time
@@ -470,6 +546,17 @@ contains
 
   end function real2d
 
+  !***************************************************************************
+  !> @brief Reads a 3D variable from the WRF file.
+  !!
+  !! This function reads a 3D variable (longitude x latitude x level) from the WRF file
+  !! for a given time step.
+  !!
+  !! @param[in]  file  WRF file structure.
+  !! @param[in]  time  Time index to read data for.
+  !! @param[in]  names Array of variable names to read and sum.
+  !! @return     real3d 3D array of the variable data.
+  !***************************************************************************
   function real3d ( file, time, names )
     type ( wrf_file ), intent ( in ) :: file
     integer, intent ( in ) :: time
@@ -502,6 +589,14 @@ contains
 
   end function real3d
 
+  !***************************************************************************
+  !> @brief Checks the status of a NetCDF operation.
+  !!
+  !! This subroutine checks the status of a NetCDF operation and stops execution
+  !! if an error is encountered.
+  !!
+  !! @param[in] status Status code returned by a NetCDF operation.
+  !***************************************************************************
   subroutine check ( status )
     integer, intent ( in ) :: status
     if ( status /= NF90_NOERR ) then
@@ -510,6 +605,17 @@ contains
     end if
   end subroutine check
 
+  !***************************************************************************
+  !> @brief Defines a dimension in the NetCDF file.
+  !!
+  !! This subroutine defines a dimension in the NetCDF file, optionally as unlimited.
+  !!
+  !! @param[in] ncid      NetCDF file ID.
+  !! @param[in] dim_name  Name of the dimension.
+  !! @param[out] dimid    Dimension ID.
+  !! @param[in] len       Length of the dimension.
+  !! @param[in] unlimit   Logical flag to define the dimension as unlimited.
+  !***************************************************************************
   subroutine def_dim(ncid,dim_name,dimid,len,unlimit)
     implicit none
     character(*) :: dim_name
@@ -526,6 +632,14 @@ contains
 
   end subroutine def_dim
 
+  !***************************************************************************
+  !> @brief Removes underscores from a string.
+  !!
+  !! This function removes underscores from a string and replaces them with spaces.
+  !!
+  !! @param[in]  input_string Input string to process.
+  !! @return     output_string Processed string with underscores removed.
+  !***************************************************************************
   function remove_underscores(input_string) result(output_string)
     character(*), intent(in) :: input_string
     character(len(input_string)) :: output_string

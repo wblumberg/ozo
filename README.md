@@ -63,7 +63,7 @@ Thus, with that data, OZO can be run for two timesteps (h=118-119).
 
 `toler`: Threshold for testing the convergence in the solving of omega equation. By default, 5e-5 is given.  
 
-`ny1, ny2`: Numbers of sub-cycle iterations in the descending and ascending phases of the multigrid cycle, respectively. By default, 4 and 2 for 100 km resolution are given.  
+`ny1, ny2`: Numbers of sub-cycle iterations in the descending (coarsening) and ascending (fining) phases of the multigrid cycle, respectively. By default, 4 and 2 for 100 km resolution are given.  
 
 `mode`: Mode of the omega equation. Choose "G" for generalized one and "Q" for quasi-geostrophic one. "T" and "t" are test modes for both equations.  
 

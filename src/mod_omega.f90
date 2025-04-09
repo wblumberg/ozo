@@ -99,9 +99,12 @@ contains
     if(mode.eq.'G')then
        rhs(:,:,:,1,termF) = ffrict(xfrict,yfrict,corfield(:,:,:,1),dx,dy,dlev,&
             mulfact)
+       write(*,*),"FFRICTION Stats:",maxval(rhs(:,:,:,1,termF)),minval(rhs(:,:,:,1,termF))
        rhs(:,:,:,1,termQ) = fdiab(q,lev,dx,dy,mulfact)
+       write(*,*),"FDIAB Stats:",maxval(rhs(:,:,:,1,termQ)),minval(rhs(:,:,:,1,termQ))
        rhs(:,:,:,1,termA) = fimbal(zetatend,ttend,corfield(:,:,:,1),lev,dx,dy,&
             dlev,mulfact)
+       write(*,*),"FIMBAL Stats:",maxval(rhs(:,:,:,1,termA)),minval(rhs(:,:,:,1,termA))
        if(calc_div)then
           rhs(:,:,:,1,termVKhi) = fvort(ukhi,vkhi,zetaraw,corfield(:,:,:,1),&
                dx,dy,dlev,mulfact)
@@ -270,7 +273,7 @@ contains
 
     if(mode.eq.'Q')then
        do i=1,2
-          if(debug)print*,QG_omega_long_names(i)
+          if(debug)print*,"SOLVING QG OMEGA FOR: ", QG_omega_long_names(i)
           call callsolveQG(rhs(:,:,:,:,i),zero,omega,nlonx,nlatx,nlevx,dx2,&
                dy2,dlev2,sigma0,feta,nres,alfa,toler,debug)
           omegas_QG(:,:,:,i)=omega(:,:,:,1)
@@ -562,110 +565,155 @@ function fvort(u, v, zeta, corpar, dx, dy, dp, mulfact) result(fv)
 end function fvort
 
 function ftemp(u,v,t,lev,dx,dy,mulfact) result(ft)
-  !   Calculation of temperature advection forcing
-  !   Input: u,v,t
-  !   Output: stored in "adv" (bad style ...)
-  !
-  real,dimension(:,:,:),intent(in) :: u,v,t,mulfact
-  real,dimension(:),intent(in) :: lev
-  real,intent(in) :: dx,dy
-  real,dimension(:,:,:),allocatable :: adv,lapladv,ft
-  integer :: k,nlon,nlat,nlev
+   !   Calculation of temperature advection forcing
+   !   Input: u,v,t
+   !   Output: stored in "adv" (bad style ...)
+   !
+   real,dimension(:,:,:),intent(in) :: u,v,t,mulfact
+   real,dimension(:),intent(in) :: lev
+   real,intent(in) :: dx,dy
+   real,dimension(:,:,:),allocatable :: adv,lapladv,ft
+   integer :: k,nlon,nlat,nlev
 
-  nlon=size(u,1)
-  nlat=size(u,2)
-  nlev=size(u,3)
-  allocate(ft(nlon,nlat,nlev))
+   nlon=size(u,1)
+   nlat=size(u,2)
+   nlev=size(u,3)
+   allocate(ft(nlon,nlat,nlev))
 
-  adv = advect_cart(u,v,t,dx,dy)
-  adv = adv*mulfact
+   print *, "ftemp: Input values"
+   print *, "u: min =", minval(u), ", max =", maxval(u)
+   print *, "v: min =", minval(v), ", max =", maxval(v)
+   print *, "t: min =", minval(t), ", max =", maxval(t)
+   print *, "mulfact: min =", minval(mulfact), ", max =", maxval(mulfact)
+   print *, "dx =", dx, ", dy =", dy
 
-  lapladv = laplace_cart(adv,dx,dy)
+   adv = advect_cart(u,v,t,dx,dy)
+   print *, "ftemp: adv (after advect_cart): min =", minval(adv), ", max =", maxval(adv)
 
-  do k=1,nlev
-     ft(:,:,k)=lapladv(:,:,k)*r/lev(k)
-  enddo
+   adv = adv*mulfact
+   print *, "ftemp: adv (after multiplying by mulfact): min =", minval(adv), ", max =", maxval(adv)
+
+   lapladv = laplace_cart(adv,dx,dy)
+   print *, "ftemp: lapladv (after laplace_cart): min =", minval(lapladv), ", max =", maxval(lapladv)
+
+   do k=1,nlev
+       ft(:,:,k)=lapladv(:,:,k)*r/lev(k)
+   enddo
+   print *, "ftemp: ft (final result): min =", minval(ft), ", max =", maxval(ft)
 
 end function ftemp
 
 function ffrict(fx,fy,corpar,dx,dy,dp,mulfact) result(ff)
-  !   Calculation of friction forcing
-  !   Input: fx,fy = x and y components of "friction force"
-  !   Output: ff
-  !
-  real,dimension(:,:,:),intent(in) :: fx,fy,mulfact,corpar
-  real,dimension(:,:,:),allocatable :: fcurl,dcurldp,ff
-  real,intent(in) :: dx,dy,dp
-  integer :: nlon,nlat,nlev
+   !   Calculation of friction forcing
+   !   Input: fx,fy = x and y components of "friction force"
+   !   Output: ff
+   !
+   real,dimension(:,:,:),intent(in) :: fx,fy,mulfact,corpar
+   real,dimension(:,:,:),allocatable :: fcurl,dcurldp,ff
+   real,intent(in) :: dx,dy,dp
+   integer :: nlon,nlat,nlev
 
-  nlon=size(fx,1)
-  nlat=size(fx,2)
-  nlev=size(fx,3)
-  allocate(ff(nlon,nlat,nlev))
+   nlon=size(fx,1)
+   nlat=size(fx,2)
+   nlev=size(fx,3)
+   allocate(ff(nlon,nlat,nlev))
 
-  fcurl = curl_cart(fx,fy,dx,dy)
-  fcurl=fcurl*mulfact
+   print *, "ffrict: Input values"
+   print *, "fx: min =", minval(fx), ", max =", maxval(fx)
+   print *, "fy: min =", minval(fy), ", max =", maxval(fy)
+   print *, "corpar: min =", minval(corpar), ", max =", maxval(corpar)
+   print *, "mulfact: min =", minval(mulfact), ", max =", maxval(mulfact)
+   print *, "dx =", dx, ", dy =", dy, ", dp =", dp
 
-  dcurldp = pder(fcurl,dp)
+   fcurl = curl_cart(fx,fy,dx,dy)
+   print *, "ffrict: fcurl (after curl_cart): min =", minval(fcurl), ", max =", maxval(fcurl)
 
-  ff=-corpar*dcurldp
+   fcurl=fcurl*mulfact
+   print *, "ffrict: fcurl (after multiplying by mulfact): min =", minval(fcurl), ", max =", maxval(fcurl)
+
+   dcurldp = pder(fcurl,dp)
+   print *, "ffrict: dcurldp (after pder): min =", minval(dcurldp), ", max =", maxval(dcurldp)
+
+   ff=-corpar*dcurldp
+   print *, "ffrict: ff (final result): min =", minval(ff), ", max =", maxval(ff)
 
 end function ffrict
 
 function fdiab(q,lev,dx,dy,mulfact) result(fq)
-  !   Calculation of diabatic heating forcing
-  !   Input: q = diabatic temperature tendency (already normalized by cp)
-  !   Output: stored in "fq"
-  !
-  real,dimension(:,:,:),intent(inout) :: q
-  real,dimension(:,:,:),intent(in) :: mulfact
-  real,dimension(:,:,:),allocatable :: fq
-  real,dimension(:),intent(in) :: lev
-  real,intent(in) :: dx,dy
-  integer :: k,nlon,nlat,nlev
+   !   Calculation of diabatic heating forcing
+   !   Input: q = diabatic temperature tendency (already normalized by cp)
+   !   Output: stored in "fq"
+   !
+   real,dimension(:,:,:),intent(inout) :: q
+   real,dimension(:,:,:),intent(in) :: mulfact
+   real,dimension(:,:,:),allocatable :: fq
+   real,dimension(:),intent(in) :: lev
+   real,intent(in) :: dx,dy
+   integer :: k,nlon,nlat,nlev
 
-  nlon=size(q,1)
-  nlat=size(q,2)
-  nlev=size(q,3)
-  allocate(fq(nlon,nlat,nlev))
+   nlon=size(q,1)
+   nlat=size(q,2)
+   nlev=size(q,3)
+   allocate(fq(nlon,nlat,nlev))
 
-  q=q*mulfact
-  fq = laplace_cart(q,dx,dy)
+   print *, "fdiab: Input values"
+   print *, "q: min =", minval(q), ", max =", maxval(q)
+   print *, "mulfact: min =", minval(mulfact), ", max =", maxval(mulfact)
+   print *, "dx =", dx, ", dy =", dy
 
-  do k=1,nlev
-     fq(:,:,k)=-r*fq(:,:,k)/lev(k)
-  enddo
+   q=q*mulfact
+   print *, "fdiab: q (after multiplying by mulfact): min =", minval(q), ", max =", maxval(q)
+
+   fq = laplace_cart(q,dx,dy)
+   print *, "fdiab: fq (after laplace_cart): min =", minval(fq), ", max =", maxval(fq)
+
+   do k=1,nlev
+       fq(:,:,k)=-r*fq(:,:,k)/lev(k)
+   enddo
+   print *, "fdiab: fq (final result): min =", minval(fq), ", max =", maxval(fq)
 
 end function fdiab
 
 function fimbal(dzetadt,dtdt,corpar,lev,dx,dy,dp,mulfact) result(fa)
-  !   Calculation of the FA ("imbalance") forcing term
-  !   Input: dzetadt, dtdt = vorticity & temperature tendencies
-  !   Output: fa
-  !
-  real,dimension(:,:,:),intent(inout) :: dzetadt,dtdt
-  real,dimension(:,:,:),intent(in) ::  mulfact,corpar
-  real,dimension(:),intent(in) :: lev
-  real,intent(in) :: dx,dy,dp
-  real,dimension(:,:,:),allocatable :: ddpdzetadt,lapldtdt,fa
-  integer k,nlon,nlat,nlev
+   !   Calculation of the FA ("imbalance") forcing term
+   !   Input: dzetadt, dtdt = vorticity & temperature tendencies
+   !   Output: fa
+   !
+   real,dimension(:,:,:),intent(inout) :: dzetadt,dtdt
+   real,dimension(:,:,:),intent(in) ::  mulfact,corpar
+   real,dimension(:),intent(in) :: lev
+   real,intent(in) :: dx,dy,dp
+   real,dimension(:,:,:),allocatable :: ddpdzetadt,lapldtdt,fa
+   integer k,nlon,nlat,nlev
 
-  nlon=size(dtdt,1)
-  nlat=size(dtdt,2)
-  nlev=size(dtdt,3)
-  allocate(fa(nlon,nlat,nlev))
+   nlon=size(dtdt,1)
+   nlat=size(dtdt,2)
+   nlev=size(dtdt,3)
+   allocate(fa(nlon,nlat,nlev))
 
-  dzetadt=dzetadt*mulfact
-  dtdt=dtdt*mulfact
+   print *, "fimbal: Input values"
+   print *, "dzetadt: min =", minval(dzetadt), ", max =", maxval(dzetadt)
+   print *, "dtdt: min =", minval(dtdt), ", max =", maxval(dtdt)
+   print *, "corpar: min =", minval(corpar), ", max =", maxval(corpar)
+   print *, "mulfact: min =", minval(mulfact), ", max =", maxval(mulfact)
+   print *, "dx =", dx, ", dy =", dy, ", dp =", dp
 
-  ddpdzetadt = pder(dzetadt,dp)
+   dzetadt=dzetadt*mulfact
+   dtdt=dtdt*mulfact
+   print *, "fimbal: dzetadt (after multiplying by mulfact): min =", minval(dzetadt), ", max =", maxval(dzetadt)
+   print *, "fimbal: dtdt (after multiplying by mulfact): min =", minval(dtdt), ", max =", maxval(dtdt)
 
-  lapldtdt = laplace_cart(dtdt,dx,dy)
+   ddpdzetadt = pder(dzetadt,dp)
+   print *, "fimbal: ddpdzetadt (after pder): min =", minval(ddpdzetadt), ", max =", maxval(ddpdzetadt)
 
-  ddpdzetadt = corpar*ddpdzetadt
-  do k=1,nlev
-     fa(:,:,k)=ddpdzetadt(:,:,k)+lapldtdt(:,:,k)*r/lev(k)
-  enddo
+   lapldtdt = laplace_cart(dtdt,dx,dy)
+   print *, "fimbal: lapldtdt (after laplace_cart): min =", minval(lapldtdt), ", max =", maxval(lapldtdt)
+
+   ddpdzetadt = corpar*ddpdzetadt
+   do k=1,nlev
+       fa(:,:,k)=ddpdzetadt(:,:,k)+lapldtdt(:,:,k)*r/lev(k)
+   enddo
+   print *, "fimbal: fa (final result): min =", minval(fa), ", max =", maxval(fa)
 
 end function fimbal
 
@@ -1084,12 +1132,14 @@ subroutine solvegen(rhs,boundaries,omega,omegaold,nlon,nlat,nlev,&
   logical,             intent(in) :: lres
   integer :: i,j,k
 
+   ! Set boundary conditions for the top and bottom of the omega grid
   do j=1,nlat
      do i=1,nlon
         omegaold(i,j,1)=boundaries(i,j,1)
         omegaold(i,j,nlev)=boundaries(i,j,nlev)
      enddo
   enddo
+   ! Set boundary conditions for the south and north grid edges
   do k=2,nlev-1
      do i=1,nlon
         omegaold(i,1,k)=boundaries(i,1,k)
@@ -1097,6 +1147,12 @@ subroutine solvegen(rhs,boundaries,omega,omegaold,nlon,nlat,nlev,&
      enddo
   enddo
   ! TODO: Add loop that saves the boundary conditions in the X direction too
+   do k=2,nlev-1
+     do i=1,nlat
+        omegaold(1,i,k)=boundaries(1,i,k)
+        omegaold(nlon,i,k)=boundaries(nlon,i,k)
+     enddo
+  enddo
 
   omega=omegaold
 
@@ -1181,18 +1237,22 @@ subroutine updategen(omegaold,omega,sigma0,sigma,feta,f,d2zetadp,dudp,dvdp,&
   !   Old values are retained at y and z boundaries.
   !
   !   TODO: Retain the values at the x boundary as well!
+  !   I think to do this, I need to change the slicing of the arrays
+  !   from (: 2:nlat-1,k) to (2:nlon-1,2:nlat-1,k)
   do k=2,nlev-1
-     coeff(:,2:nlat-1,k)=sigma0(k)*coeff1(:,2:nlat-1,k) &
-          + feta(:,2:nlat-1,k)*coeff2(:,2:nlat-1,k) &
-          - f(:,2:nlat-1,k)*d2zetadp(:,2:nlat-1,k)
-     omega(:,2:nlat-1,k)=(rhs(:,2:nlat-1,k)-dum1(:,2:nlat-1,k) &
-          -dum3(:,2:nlat-1,k)-sigma0(k)*lapl2(:,2:nlat-1,k) &
-          -feta(:,2:nlat-1,k)*domedp2(:,2:nlat-1,k)) / coeff(:,2:nlat-1,k)
+     coeff(2:nlon-1,2:nlat-1,k)=sigma0(k)*coeff1(2:nlon-1,2:nlat-1,k) &
+          + feta(2:nlon-1,2:nlat-1,k)*coeff2(2:nlon-1,2:nlat-1,k) &
+          - f(2:nlon-1,2:nlat-1,k)*d2zetadp(2:nlon-1,2:nlat-1,k)
+     omega(2:nlon-1,2:nlat-1,k)=(rhs(2:nlon-1,2:nlat-1,k)-dum1(2:nlon-1,2:nlat-1,k) &
+          -dum3(2:nlon-1,2:nlat-1,k)-sigma0(k)*lapl2(2:nlon-1,2:nlat-1,k) &
+          -feta(2:nlon-1,2:nlat-1,k)*domedp2(2:nlon-1,2:nlat-1,k)) / coeff(2:nlon-1,2:nlat-1,k)
   enddo
 
+  ! Revised this to loop over the longtiude dimension too (maybe this can be vectorized?)
   do k=2,nlev-1
      do j=2,nlat-1
-        omegaold(:,j,k)=alfa*omega(:,j,k)+(1-alfa)*omegaold(:,j,k)
+        do i=2,nlon-1
+          omegaold(i,j,k)=alfa*omega(i,j,k)+(1-alfa)*omegaold(i,j,k)
      enddo
   enddo
 
@@ -1253,6 +1313,9 @@ subroutine residgen(rhs,omega,resid,sigma,feta,f,d2zetadp,dudp,dvdp, &
 
 end subroutine residgen
 
+! I think this subroutine is the same as laplace_cart, but it's only used
+! in the solvegen subroutine, so I think it only has to do with solving the
+! LHS of the omega equation.
 subroutine laplace2_cart(f,dx,dy,lapl2,coeff)
   !
   !      As laplace_cart but
@@ -1272,6 +1335,7 @@ subroutine laplace2_cart(f,dx,dy,lapl2,coeff)
   c=1
   select case (c)
   case(1)
+      ! This version looks like it uses vectorized operations rather than loops
 
      ! x-direction
      lapl2 ( 2 : nlon - 1, :, : ) = f( 1: nlon - 2, :, : ) &
@@ -1288,11 +1352,12 @@ subroutine laplace2_cart(f,dx,dy,lapl2,coeff)
      coeff ( :, 1, : ) = -2 * ( inv_dx )
      coeff ( :, nlat, : ) = -2 * ( inv_dx )
   case(2)
+       !   Laplacian operator in the x-direction
      do j=1,nlat
         do k=1,nlev
            do i=1,nlon
               ! x-direction
-              if(i==1)then
+              if(i==1)then ! Due to periodic BCs
                  lapl2(i,j,k)=(-(1./12.)*f(nlon-1,j,k)+(4./3.)*f(nlon,j,k) &
                       +(4./3.)*f(i+1,j,k)-(1./12.)*f(i+2,j,k))/(dx*dx)
               else if(i==2)then
@@ -1301,7 +1366,7 @@ subroutine laplace2_cart(f,dx,dy,lapl2,coeff)
               else if(i==nlon-1)then
                  lapl2(i,j,k)=(-(1./12.)*f(i-2,j,k)+(4./3.)*f(i-1,j,k) &
                       +(4./3.)*f(i+1,j,k)-(1./12.)*f(1,j,k))/(dx*dx)
-              else if(i==nlon)then
+              else if(i==nlon)then ! Due to periodic BCs
                  lapl2(i,j,k)=(-(1./12.)*f(i-2,j,k)+(4./3.)*f(i-1,j,k) &
                       +(4./3.)*f(1,j,k)-(1./12.)*f(2,j,k))/(dx*dx)
               else
@@ -1313,6 +1378,7 @@ subroutine laplace2_cart(f,dx,dy,lapl2,coeff)
         enddo
      enddo
 
+       !   Laplacian operator in the y-direction
      do i=1,nlon
         do k=1,nlev
            do j=2,nlat-1
